@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard — SGV UTEQ{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-layout {
+        display: flex;
+        gap: 1.2rem;
+        align-items: flex-start;
+    }
+    .panel-izq {
+        width: 210px;
+        min-width: 210px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .img-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .img-card:hover { border-color: #1b7505; }
+    .img-card-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 1rem;
+    }
+    .img-card-placeholder i {
+        font-size: 2rem;
+        color: #a8a8a7;
+    }
+    .img-card-placeholder span {
+        font-size: 0.75rem;
+        color: #a8a8a7;
+        text-align: center;
+    }
+    .panel-modulos { flex: 1; }
+    .dashboard-header { margin-bottom: 1.2rem; }
+    .dashboard-header h4 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0d1910;
+        margin: 0;
+    }
+    .dashboard-header p {
+        font-size: 0.82rem;
+        color: #6c757d;
+        margin: 2px 0 0 0;
+    }
+    .linea-dorada {
+        width: 36px;
+        height: 3px;
+        background-color: #dba112;
+        border-radius: 2px;
+        margin: 6px 0 0 0;
+    }
+    .modulo-card {
+        background: #ffffff;
+        border: 1px solid #e8e8e8;
+        border-radius: 12px;
+        padding: 1.2rem 0.8rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        text-decoration: none;
+        color: #0d1910;
+        transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+        height: 100%;
+    }
+    .modulo-card:hover {
+        border-color: #1b7505;
+        box-shadow: 0 4px 16px rgba(27,117,5,0.10);
+        transform: translateY(-2px);
+        color: #0d1910;
+    }
+    .modulo-card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    .modulo-icono {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background-color: #f0f5ee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.8rem;
+    }
+    .modulo-icono i {
+        font-size: 1.6rem;
+        color: #1b7505;
+    }
+    .modulo-nombre {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #0d1910;
+        margin-bottom: 0.3rem;
+    }
+    .modulo-desc {
+        font-size: 0.72rem;
+        color: #6c757d;
+        line-height: 1.4;
+    }
+    .modulo-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        margin-top: 6px;
+        background: #f4f4f4;
+        color: #a8a8a7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+
+    <!-- PANEL IZQUIERDO -->
+    <div class="panel-izq">
+        <div class="img-card">
+            <div class="img-card-placeholder">
+                <i class="bi bi-image"></i>
+                <span>Imagen informativa 1</span>
+            </div>
+        </div>
+        <div class="img-card">
+            <div class="img-card-placeholder">
+                <i class="bi bi-image"></i>
+                <span>Imagen informativa 2</span>
+            </div>
+        </div>
+        <div class="img-card">
+            <div class="img-card-placeholder">
+                <i class="bi bi-image"></i>
+                <span>Imagen informativa 3</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL MÓDULOS -->
+    <div class="panel-modulos">
+        <div class="dashboard-header">
+            <h4>Panel de Control</h4>
+            <p>Seleccione un módulo para continuar</p>
+            <div class="linea-dorada"></div>
+        </div>
+
+        <div class="row g-3">
+
+            <!-- Mapa -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="#" class="modulo-card disabled">
+                    <div class="modulo-icono"><i class="bi bi-map"></i></div>
+                    <div class="modulo-nombre">Mapa de proyectos</div>
+                    <div class="modulo-desc">Visualización geográfica de intervenciones</div>
+                    <span class="modulo-badge">Próximamente</span>
+                </a>
+            </div>
+
+            <!-- Proyectos -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="#" class="modulo-card disabled">
+                    <div class="modulo-icono"><i class="bi bi-folder2-open"></i></div>
+                    <div class="modulo-nombre">Proyectos</div>
+                    <div class="modulo-desc">Registro y seguimiento de proyectos</div>
+                    <span class="modulo-badge">Próximamente</span>
+                </a>
+            </div>
+
+            <!-- Entidades cooperantes -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="#" class="modulo-card disabled">
+                    <div class="modulo-icono"><i class="bi bi-building"></i></div>
+                    <div class="modulo-nombre">Entidades cooperantes</div>
+                    <div class="modulo-desc">GADs, hospitales, escuelas y más</div>
+                    <span class="modulo-badge">Próximamente</span>
+                </a>
+            </div>
+
+            <!-- Convenios -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="#" class="modulo-card disabled">
+                    <div class="modulo-icono"><i class="bi bi-file-earmark-text"></i></div>
+                    <div class="modulo-nombre">Convenios</div>
+                    <div class="modulo-desc">Acuerdos con entidades cooperantes</div>
+                    <span class="modulo-badge">Próximamente</span>
+                </a>
+            </div>
+
+            <!-- Periodos académicos — ACTIVO -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="{% url 'periodos_lista' %}" class="modulo-card">
+                    <div class="modulo-icono"><i class="bi bi-calendar2-check"></i></div>
+                    <div class="modulo-nombre">Periodos académicos</div>
+                    <div class="modulo-desc">SPA y PPA por ciclo lectivo</div>
+                </a>
+            </div>
+
+            <!-- Facultades y carreras — ACTIVO -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="{% url 'facultades_lista' %}" class="modulo-card">
+                    <div class="modulo-icono"><i class="bi bi-mortarboard"></i></div>
+                    <div class="modulo-nombre">Facultades y carreras</div>
+                    <div class="modulo-desc">Estructura académica UTEQ</div>
+                </a>
+            </div>
+
+            <!-- Docentes -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="#" class="modulo-card disabled">
+                    <div class="modulo-icono"><i class="bi bi-person-badge"></i></div>
+                    <div class="modulo-nombre">Docentes</div>
+                    <div class="modulo-desc">Registro de docentes responsables</div>
+                    <span class="modulo-badge">Próximamente</span>
+                </a>
+            </div>
+
+            <!-- Reportes -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="#" class="modulo-card disabled">
+                    <div class="modulo-icono"><i class="bi bi-bar-chart-line"></i></div>
+                    <div class="modulo-nombre">Reportes</div>
+                    <div class="modulo-desc">Estadísticas y KPIs del departamento</div>
+                    <span class="modulo-badge">Próximamente</span>
+                </a>
+            </div>
+
+            <!-- Usuarios -->
+            <div class="col-6 col-md-4 col-xl-3">
+                <a href="#" class="modulo-card disabled">
+                    <div class="modulo-icono"><i class="bi bi-people"></i></div>
+                    <div class="modulo-nombre">Usuarios</div>
+                    <div class="modulo-desc">Gestión de cuentas y accesos</div>
+                    <span class="modulo-badge">Próximamente</span>
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

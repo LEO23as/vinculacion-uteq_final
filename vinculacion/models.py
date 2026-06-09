@@ -9,6 +9,13 @@ class PeriodoAcademico(models.Model):
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     activo = models.BooleanField()
+    creado_por = models.ForeignKey(  # línea nueva
+        'Usuario',
+        models.SET_NULL,
+        db_column='creado_por',
+        blank=True,
+        null=True
+    )
     creado_en = models.DateTimeField()
 
     class Meta:
@@ -145,6 +152,7 @@ class Usuario(models.Model):
     nombres = models.CharField(max_length=200, blank=True, null=True)
     correo = models.CharField(max_length=150, blank=True, null=True)
     activo = models.BooleanField()
+    debe_cambiar_clave = models.BooleanField(default=True)  
     ultimo_acceso = models.DateTimeField(blank=True, null=True)
     creado_en = models.DateTimeField()
 

@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Periodos Académicos — SGV{% endblock %}
+
+{% block extra_css %}
+<style>
+    .modulo-layout { display: flex; gap: 0; min-height: calc(100vh - 100px); }
+
+    /* SIDEBAR */
+    .sidebar-modulo {
+        width: 240px;
+        min-width: 240px;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e8e8e8;
+        padding: 1rem 0;
+        height: fit-content;
+        position: sticky;
+        top: 74px;
+        transition: width 0.25s ease;
+        overflow: hidden;
+    }
+    .sidebar-modulo.collapsed { width: 56px; min-width: 56px; }
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1rem 0.8rem 1rem;
+        border-bottom: 1px solid #f0f0f0;
+        margin-bottom: 0.5rem;
+    }
+    .sidebar-titulo {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #a8a8a7;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    .sidebar-modulo.collapsed .sidebar-titulo { display: none; }
+    .btn-toggle-sidebar {
+        background: none;
+        border: none;
+        color: #1b7505;
+        font-size: 1.1rem;
+        cursor: pointer;
+        padding: 2px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
+    .sidebar-nav a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 1rem;
+        color: #0d1910;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border-left: 3px solid transparent;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+    .sidebar-nav a:hover {
+        background-color: #f0f5ee;
+        border-left-color: #1b7505;
+        color: #1b7505;
+    }
+    .sidebar-nav a.active {
+        background-color: #f0f5ee;
+        border-left-color: #1b7505;
+        color: #1b7505;
+        font-weight: 700;
+    }
+    .sidebar-nav a i { font-size: 1rem; flex-shrink: 0; color: #1b7505; }
+    .sidebar-nav span { overflow: hidden; }
+    .sidebar-modulo.collapsed .sidebar-nav span { display: none; }
+    .sidebar-modulo.collapsed .sidebar-nav a { justify-content: center; padding: 10px; }
+    .sidebar-modulo.collapsed .sidebar-header { justify-content: center; padding: 0 0 0.8rem 0; }
+
+    /* CONTENIDO */
+    .modulo-contenido {
+        flex: 1;
+        padding-left: 1.2rem;
+    }
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.2rem;
+    }
+    .page-header h5 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0d1910;
+        margin: 0;
+    }
+    .page-header p {
+        font-size: 0.78rem;
+        color: #6c757d;
+        margin: 2px 0 0 0;
+    }
+    .linea-dorada {
+        width: 32px; height: 3px;
+        background-color: #dba112;
+        border-radius: 2px;
+        margin-top: 5px;
+    }
+    .btn-nuevo {
+        background-color: #1b7505;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: background-color 0.2s;
+    }
+    .btn-nuevo:hover { background-color: #155e04; color: #fff; }
+
+    /* TABLA */
+    .tabla-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e8e8e8;
+        overflow: hidden;
+    }
+    .tabla-card table { margin: 0; }
+    .tabla-card thead th {
+        background-color: #f8f9f8;
+        color: #0d1910;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid #e8e8e8;
+        padding: 10px 14px;
+    }
+    .tabla-card tbody td {
+        font-size: 0.84rem;
+        color: #0d1910;
+        padding: 10px 14px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f4f4f4;
+    }
+    .tabla-card tbody tr:last-child td { border-bottom: none; }
+    .tabla-card tbody tr:hover td { background-color: #fafffe; }
+    .badge-spa {
+        background-color: #e8f4e8;
+        color: #1b7505;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .badge-ppa {
+        background-color: #fef6e4;
+        color: #dba112;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .badge-activo {
+        background-color: #e8f4e8;
+        color: #1b7505;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .badge-inactivo {
+        background-color: #f4f4f4;
+        color: #a8a8a7;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .btn-accion {
+        font-size: 0.78rem;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-editar {
+        color: #1b7505;
+        border-color: #1b7505;
+        background: transparent;
+    }
+    .btn-editar:hover { background: #1b7505; color: #fff; }
+    .btn-toggle-on {
+        color: #dc3545;
+        border-color: #dc3545;
+        background: transparent;
+    }
+    .btn-toggle-on:hover { background: #dc3545; color: #fff; }
+    .btn-toggle-off {
+        color: #1b7505;
+        border-color: #1b7505;
+        background: transparent;
+    }
+    .btn-toggle-off:hover { background: #1b7505; color: #fff; }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #a8a8a7;
+    }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 0.8rem; }
+
+    .alert-msg {
+        border-radius: 8px;
+        font-size: 0.82rem;
+        padding: 10px 14px;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .alert-success { background: #e8f4e8; color: #1b7505; border-left: 4px solid #1b7505; }
+    .alert-error { background: #fff0f0; color: #c0392b; border-left: 4px solid #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="modulo-layout">
+
+    <!-- SIDEBAR FLOTANTE -->
+    <div class="sidebar-modulo" id="sidebarModulo">
+        <div class="sidebar-header">
+            <span class="sidebar-titulo">Periodos</span>
+            <button class="btn-toggle-sidebar" onclick="toggleSidebar()" title="Colapsar menú">
+                <i class="bi bi-list" id="iconoToggle"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'periodos_lista' %}" class="active">
+                <i class="bi bi-calendar2-check"></i>
+                <span>Lista de periodos</span>
+            </a>
+            <a href="{% url 'periodo_nuevo' %}">
+                <i class="bi bi-plus-circle"></i>
+                <span>Nuevo periodo</span>
+            </a>
+            <a href="{% url 'dashboard' %}">
+                <i class="bi bi-grid"></i>
+                <span>Volver al inicio</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- CONTENIDO -->
+    <div class="modulo-contenido">
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert-msg {% if 'exitosamente' in message.message or 'correctamente' in message.message or 'activado' in message.message or 'desactivado' in message.message %}alert-success{% else %}alert-error{% endif %}">
+                    <i class="bi bi-{% if 'exitosamente' in message.message or 'correctamente' in message.message %}check-circle{% else %}exclamation-circle{% endif %}"></i>
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="page-header">
+            <div>
+                <h5>Periodos Académicos</h5>
+                <p>Gestión de ciclos SPA y PPA</p>
+                <div class="linea-dorada"></div>
+            </div>
+            <a href="{% url 'periodo_nuevo' %}" class="btn-nuevo">
+                <i class="bi bi-plus-lg"></i> Nuevo periodo
+            </a>
+        </div>
+
+        <div class="tabla-card">
+            <table class="table table-borderless">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Fecha inicio</th>
+                        <th>Fecha fin</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for periodo in periodos %}
+                    <tr>
+                        <td><strong>{{ periodo.codigo }}</strong></td>
+                        <td>{{ periodo.nombre }}</td>
+                        <td>
+                            <span class="badge-{% if periodo.tipo == 'SPA' %}spa{% else %}ppa{% endif %}">
+                                {{ periodo.tipo }}
+                            </span>
+                        </td>
+                        <td>{{ periodo.fecha_inicio|date:"d/m/Y" }}</td>
+                        <td>{{ periodo.fecha_fin|date:"d/m/Y" }}</td>
+                        <td>
+                            <span class="badge-{% if periodo.activo %}activo{% else %}inactivo{% endif %}">
+                                {% if periodo.activo %}Activo{% else %}Inactivo{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'periodo_editar' periodo.id_periodo %}" class="btn-accion btn-editar">
+                                <i class="bi bi-pencil"></i> Editar
+                            </a>
+                            <a href="{% url 'periodo_toggle' periodo.id_periodo %}" class="btn-accion btn-toggle-{% if periodo.activo %}on{% else %}off{% endif %}">
+                                <i class="bi bi-{% if periodo.activo %}pause-circle{% else %}play-circle{% endif %}"></i>
+                                {% if periodo.activo %}Desactivar{% else %}Activar{% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <i class="bi bi-calendar-x d-block"></i>
+                                No hay periodos registrados aún.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebarModulo');
+        const icono = document.getElementById('iconoToggle');
+        sidebar.classList.toggle('collapsed');
+        if (sidebar.classList.contains('collapsed')) {
+            icono.className = 'bi bi-layout-sidebar';
+        } else {
+            icono.className = 'bi bi-list';
+        }
+    }
+</script>
+{% endblock %}

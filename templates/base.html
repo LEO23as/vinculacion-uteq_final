@@ -1,0 +1,175 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SGV — Sistema de Gestión de Vinculación{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        * { font-family: 'Nunito', sans-serif; }
+        html, body { height: 100%; margin: 0; padding: 0; }
+        body {
+            background-color: #f4f5f4;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* TOPBAR */
+        .topbar {
+            background-color: #1b7505;
+            height: 58px;
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(13,25,16,0.18);
+        }
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0 ;
+            text-decoration: none;
+        }
+        .topbar-sigla {
+            color: #ffffff;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            line-height: 1;
+        }
+        .topbar-divisor {
+            color: rgba(255,255,255,0.4);
+            font-size: 1.2rem;
+            margin: 0 0.75rem;
+            font-weight: 300;
+        }
+        .topbar-nombre {
+            color: rgba(255,255,255,0.9);
+            font-size: 0.88rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+        .topbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .periodo-badge {
+            background-color: rgba(255,255,255,0.15);
+            color: #ffffff;
+            font-size: 0.76rem;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .usuario-badge {
+            color: #ffffff;
+            font-size: 0.82rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .usuario-badge i { color: #dba112; font-size: 1.1rem; }
+        .btn-logout {
+            background-color: rgba(255,255,255,0.12);
+            color: #ffffff;
+            font-size: 0.76rem;
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 6px;
+            padding: 5px 12px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: background-color 0.2s;
+        }
+        .btn-logout:hover {
+            background-color: rgba(255,255,255,0.22);
+            color: #ffffff;
+        }
+
+        /* CONTENIDO */
+        .main-content {
+            margin-top: 58px;
+            margin-bottom: 42px;
+            flex: 1;
+            padding: 1.5rem;
+        }
+
+        /* FOOTER */
+        .footer-uteq {
+            background-color: #1b7505;
+            color: rgba(255,255,255,0.75);
+            font-size: 0.74rem;
+            text-align: center;
+            padding: 10px 1rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        .footer-uteq a {
+            color: #dba112;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .footer-uteq a:hover { text-decoration: underline; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- TOPBAR -->
+    <nav class="topbar">
+        <a href="{% url 'dashboard' %}" class="topbar-brand">
+            <span class="topbar-sigla">SGV</span>
+            <span class="topbar-divisor">|</span>
+            <span class="topbar-nombre">Sistema de Gestión de Vinculación</span>
+        </a>
+
+        <div class="topbar-right">
+            {% if periodo_activo %}
+                <span class="periodo-badge">
+                    <i class="bi bi-calendar3"></i>
+                    {{ periodo_activo }}
+                </span>
+            {% endif %}
+            <span class="usuario-badge">
+                <i class="bi bi-person-circle"></i>
+                {{ request.session.usuario_nombre|default:"Usuario" }}
+            </span>
+            <a href="{% url 'logout' %}" class="btn-logout">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- FOOTER FIJO -->
+    <footer class="footer-uteq">
+        © {% now "Y" %} <a href="{% url 'dashboard' %}">Universidad Técnica Estatal de Quevedo</a>
+        &nbsp;—&nbsp; Sistema de Gestión de Vinculación con la Colectividad
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

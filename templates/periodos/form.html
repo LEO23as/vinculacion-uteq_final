@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if editar %}Editar{% else %}Nuevo{% endif %} Periodo — SGV{% endblock %}
+
+{% block extra_css %}
+<style>
+    .modulo-layout { display: flex; gap: 0; }
+    .sidebar-modulo {
+        width: 240px; min-width: 240px;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e8e8e8;
+        padding: 1rem 0;
+        height: fit-content;
+        position: sticky;
+        top: 74px;
+        transition: width 0.25s ease;
+        overflow: hidden;
+    }
+    .sidebar-modulo.collapsed { width: 56px; min-width: 56px; }
+    .sidebar-header {
+        display: flex; align-items: center;
+        justify-content: space-between;
+        padding: 0 1rem 0.8rem 1rem;
+        border-bottom: 1px solid #f0f0f0;
+        margin-bottom: 0.5rem;
+    }
+    .sidebar-titulo {
+        font-size: 0.72rem; font-weight: 700;
+        color: #a8a8a7; text-transform: uppercase;
+        letter-spacing: 0.08em; white-space: nowrap;
+    }
+    .sidebar-modulo.collapsed .sidebar-titulo { display: none; }
+    .btn-toggle-sidebar {
+        background: none; border: none;
+        color: #1b7505; font-size: 1.1rem;
+        cursor: pointer; padding: 2px;
+        flex-shrink: 0; display: flex; align-items: center;
+    }
+    .sidebar-nav a {
+        display: flex; align-items: center; gap: 10px;
+        padding: 9px 1rem; color: #0d1910;
+        text-decoration: none; font-size: 0.85rem;
+        font-weight: 500; border-left: 3px solid transparent;
+        transition: all 0.15s; white-space: nowrap;
+    }
+    .sidebar-nav a:hover, .sidebar-nav a.active {
+        background-color: #f0f5ee;
+        border-left-color: #1b7505; color: #1b7505; font-weight: 700;
+    }
+    .sidebar-nav a i { font-size: 1rem; flex-shrink: 0; color: #1b7505; }
+    .sidebar-modulo.collapsed .sidebar-nav span { display: none; }
+    .sidebar-modulo.collapsed .sidebar-nav a { justify-content: center; padding: 10px; }
+    .sidebar-modulo.collapsed .sidebar-header { justify-content: center; padding: 0 0 0.8rem 0; }
+
+    .modulo-contenido { flex: 1; padding-left: 1.2rem; }
+   .form-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+    padding: 1.5rem;
+    width: 100%;
+}
+    .form-card h6 {
+        font-size: 0.95rem; font-weight: 700;
+        color: #0d1910; margin-bottom: 1.2rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .form-label {
+        font-size: 0.8rem; font-weight: 700;
+        color: #555; margin-bottom: 4px;
+    }
+    .form-control, .form-select {
+        font-size: 0.88rem; border-radius: 8px;
+        border: 1.5px solid #e0e0e0;
+        background: #f8f8f8; color: #0d1910;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #1b7505;
+        box-shadow: 0 0 0 3px rgba(27,117,5,0.08);
+        background: #fff;
+    }
+    .btn-guardar {
+        background-color: #1b7505; color: #fff;
+        border: none; border-radius: 8px;
+        padding: 9px 20px; font-size: 0.85rem;
+        font-weight: 700; cursor: pointer;
+        display: flex; align-items: center; gap: 6px;
+        transition: background-color 0.2s;
+    }
+    .btn-guardar:hover { background-color: #155e04; }
+    .btn-cancelar {
+        background: transparent; color: #6c757d;
+        border: 1px solid #dee2e6; border-radius: 8px;
+        padding: 9px 20px; font-size: 0.85rem;
+        font-weight: 600; text-decoration: none;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .btn-cancelar:hover { background: #f4f4f4; color: #0d1910; }
+    .page-header { margin-bottom: 1.2rem; }
+    .page-header h5 { font-size: 1rem; font-weight: 700; color: #0d1910; margin: 0; }
+    .page-header p { font-size: 0.78rem; color: #6c757d; margin: 2px 0 0 0; }
+    .linea-dorada { width: 32px; height: 3px; background-color: #dba112; border-radius: 2px; margin-top: 5px; }
+    .alert-msg { border-radius: 8px; font-size: 0.82rem; padding: 10px 14px; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+    .alert-error { background: #fff0f0; color: #c0392b; border-left: 4px solid #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="modulo-layout">
+
+    <div class="sidebar-modulo" id="sidebarModulo">
+        <div class="sidebar-header">
+            <span class="sidebar-titulo">Periodos</span>
+            <button class="btn-toggle-sidebar" onclick="toggleSidebar()">
+                <i class="bi bi-list" id="iconoToggle"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'periodos_lista' %}">
+                <i class="bi bi-calendar2-check"></i>
+                <span>Lista de periodos</span>
+            </a>
+            <a href="{% url 'periodo_nuevo' %}" class="{% if not editar %}active{% endif %}">
+                <i class="bi bi-plus-circle"></i>
+                <span>Nuevo periodo</span>
+            </a>
+            <a href="{% url 'dashboard' %}">
+                <i class="bi bi-grid"></i>
+                <span>Volver al inicio</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="modulo-contenido">
+        <div class="page-header">
+            <h5>{% if editar %}Editar Periodo{% else %}Nuevo Periodo{% endif %}</h5>
+            <p>{% if editar %}Modifica los datos del periodo académico{% else %}Registra un nuevo periodo académico{% endif %}</p>
+            <div class="linea-dorada"></div>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert-msg alert-error">
+                    <i class="bi bi-exclamation-circle"></i> {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="form-card">
+            <h6><i class="bi bi-calendar2-plus" style="color:#1b7505;margin-right:6px;"></i>
+                Datos del periodo académico
+            </h6>
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Código *</label>
+                        <input type="text" name="codigo" class="form-control"
+                               placeholder="Ej: SPA-2025-2026"
+                               value="{% if editar %}{{ periodo.codigo }}{% else %}{{ data.codigo|default:'' }}{% endif %}"
+                               required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo *</label>
+                        <select name="tipo" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="SPA" {% if editar and periodo.tipo == 'SPA' %}selected{% elif data.tipo == 'SPA' %}selected{% endif %}>SPA — Servicio a la Comunidad</option>
+                            <option value="PPA" {% if editar and periodo.tipo == 'PPA' %}selected{% elif data.tipo == 'PPA' %}selected{% endif %}>PPA — Prácticas Preprofesionales</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Nombre completo *</label>
+                        <input type="text" name="nombre" class="form-control"
+                               placeholder="Ej: Segundo Período Académico 2025-2026"
+                               value="{% if editar %}{{ periodo.nombre }}{% else %}{{ data.nombre|default:'' }}{% endif %}"
+                               required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha de inicio *</label>
+                        <input type="date" name="fecha_inicio" class="form-control"
+                               value="{% if editar %}{{ periodo.fecha_inicio|date:'Y-m-d' }}{% else %}{{ data.fecha_inicio|default:'' }}{% endif %}"
+                               required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha de fin *</label>
+                        <input type="date" name="fecha_fin" class="form-control"
+                               value="{% if editar %}{{ periodo.fecha_fin|date:'Y-m-d' }}{% else %}{{ data.fecha_fin|default:'' }}{% endif %}"
+                               required>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="activo" id="activo"
+                                   {% if editar and periodo.activo %}checked{% elif not editar %}checked{% endif %}>
+                            <label class="form-check-label" for="activo" style="font-size:0.85rem;font-weight:600;">
+                                Periodo activo
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn-guardar">
+                        <i class="bi bi-check-lg"></i>
+                        {% if editar %}Guardar cambios{% else %}Crear periodo{% endif %}
+                    </button>
+                    <a href="{% url 'periodos_lista' %}" class="btn-cancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebarModulo');
+        const icono = document.getElementById('iconoToggle');
+        sidebar.classList.toggle('collapsed');
+        icono.className = sidebar.classList.contains('collapsed') ? 'bi bi-layout-sidebar' : 'bi bi-list';
+    }
+</script>
+{% endblock %}
