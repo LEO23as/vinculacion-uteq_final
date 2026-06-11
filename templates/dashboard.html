@@ -175,21 +175,20 @@
 
             <!-- Proyectos -->
             <div class="col-6 col-md-4 col-xl-3">
-                <a href="#" class="modulo-card disabled">
-                    <div class="modulo-icono"><i class="bi bi-folder2-open"></i></div>
-                    <div class="modulo-nombre">Proyectos</div>
-                    <div class="modulo-desc">Registro y seguimiento de proyectos</div>
-                    <span class="modulo-badge">Próximamente</span>
-                </a>
+              <a href="{% url 'proyectos_lista' %}" class="modulo-card">
+    <div class="modulo-icono"><i class="bi bi-folder2-open"></i></div>
+    <div class="modulo-nombre">Proyectos</div>
+    <div class="modulo-desc">Registro y seguimiento de proyectos</div>
+</a>
             </div>
 
             <!-- Entidades cooperantes -->
             <div class="col-6 col-md-4 col-xl-3">
-                <a href="#" class="modulo-card disabled">
+            <a href="{% url 'entidades_lista' %}" class="modulo-card">
                     <div class="modulo-icono"><i class="bi bi-building"></i></div>
                     <div class="modulo-nombre">Entidades cooperantes</div>
                     <div class="modulo-desc">GADs, hospitales, escuelas y más</div>
-                    <span class="modulo-badge">Próximamente</span>
+         
                 </a>
             </div>
 

@@ -195,6 +195,7 @@ class Proyecto(models.Model):
     latitud = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
     longitud = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
     creado_en = models.DateTimeField()
+    observaciones = models.TextField(blank=True, null=True)
     actualizado_en = models.DateTimeField()
 
     class Meta:

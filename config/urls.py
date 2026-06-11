@@ -3,6 +3,8 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from vinculacion import views
+from django.conf import settings
+from django.conf.urls.static import static 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,4 +26,19 @@ urlpatterns = [
     path('carreras/nueva/', views.carrera_nueva, name='carrera_nueva'),
     path('carreras/<int:id>/editar/', views.carrera_editar, name='carrera_editar'),
     path('carreras/<int:id>/toggle/', views.carrera_toggle, name='carrera_toggle'),
+    # Entidades Cooperantes
+    path('entidades/', views.entidades_lista, name='entidades_lista'),
+    path('entidades/nueva/', views.entidad_nueva, name='entidad_nueva'),
+    path('entidades/<int:id>/editar/', views.entidad_editar, name='entidad_editar'),
+    path('entidades/<int:id>/toggle/', views.entidad_toggle, name='entidad_toggle'),
+
+    # Proyectos
+    path('proyectos/', views.proyectos_lista, name='proyectos_lista'),
+    path('proyectos/nuevo/', views.proyecto_nuevo, name='proyecto_nuevo'),
+    path('proyectos/<int:id>/editar/', views.proyecto_editar, name='proyecto_editar'),
+    path('proyectos/<int:id>/toggle/', views.proyecto_toggle, name='proyecto_toggle'),
+    path('api/carreras-por-facultad/', views.carrera_por_facultad, name='carrera_por_facultad'),
+    path('proyectos/<int:foto_id>/eliminar-foto/', views.proyecto_eliminar_foto, name='proyecto_eliminar_foto'),
+
+
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
