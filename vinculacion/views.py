@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.utils import timezone
 from vinculacion.models import Usuario, PeriodoAcademico
 from vinculacion.utils import verificar_password
-
+from django.conf import settings
 
 def login_view(request):
     if request.session.get('usuario_id'):
