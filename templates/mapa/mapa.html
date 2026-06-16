@@ -1,0 +1,422 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mapa de Proyectos — SGV{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+    /* ── Layout Principal ── */
+    .mapa-layout { display: flex; gap: 1.5rem; min-height: calc(100vh - 100px); padding-bottom: 2rem; position: relative; }
+    
+    /* ── Sidebar Rediseñado ── */
+    .sidebar-modulo { 
+        width: 260px; min-width: 260px; background: #fff; border-radius: 12px; 
+        border: 1px solid #e8e8e8; padding: 1rem 0; height: fit-content; 
+        position: sticky; top: 74px; transition: all .25s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        z-index: 10;
+    }
+    .sidebar-modulo.collapsed { width: 60px; min-width: 60px; }
+    .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 0 1rem .8rem 1rem; border-bottom: 1px solid #f0f0f0; margin-bottom: .5rem; }
+    .sidebar-titulo { font-size: .72rem; font-weight: 700; color: #a8a8a7; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+    .sidebar-modulo.collapsed .sidebar-titulo { display: none; }
+    
+    .btn-toggle-sidebar { background: none; border: none; color: #1b7505; font-size: 1.1rem; cursor: pointer; padding: 2px; flex-shrink: 0; display: flex; align-items: center; }
+    .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 1rem; color: #0d1910; text-decoration: none; font-size: .85rem; font-weight: 500; border-left: 3px solid transparent; transition: all .15s; white-space: nowrap; }
+    .sidebar-nav a:hover, .sidebar-nav a.active { background: #f0f5ee; border-left-color: #1b7505; color: #1b7505; font-weight: 700; }
+    .sidebar-nav a i { font-size: 1rem; flex-shrink: 0; color: #1b7505; }
+    
+    /* Colapsado del contenido interno del sidebar */
+    .sidebar-modulo.collapsed .sidebar-nav span, 
+    .sidebar-modulo.collapsed .sidebar-section-title,
+    .sidebar-modulo.collapsed .leyenda-sidebar,
+    .sidebar-modulo.collapsed .capas-sidebar { display: none; }
+    .sidebar-modulo.collapsed .sidebar-nav a { justify-content: center; padding: 10px; }
+    .sidebar-modulo.collapsed .sidebar-header { justify-content: center; padding: 0 0 .8rem 0; }
+
+    /* Secciones adicionales en el Sidebar */
+    .sidebar-section-title { font-size: .72rem; font-weight: 700; color: #a8a8a7; text-transform: uppercase; letter-spacing: .08em; padding: 1.2rem 1rem 0.5rem 1rem; border-top: 1px solid #f0f0f0; margin-top: 0.5rem; }
+    
+    /* Leyenda de Estados en el Sidebar */
+    .leyenda-sidebar { padding: 0 1rem; display: flex; flex-direction: column; gap: 6px; }
+    .leyenda-item { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: #0d1910; padding: 2px 0; }
+    .leyenda-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
+    
+    /* Control de Capas en el Sidebar */
+    .capas-sidebar { padding: 0 1rem; display: flex; flex-direction: column; gap: 8px; }
+    .capa-switch { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: #0d1910; cursor: pointer; }
+    .capa-switch input { cursor: pointer; accent-color: #1b7505; width: 14px; height: 14px; }
+
+    /* ── Contenido Principal ── */
+    .mapa-contenido { flex: 1; display: flex; flex-direction: column; gap: 1.2rem; min-width: 0; }
+    .page-header h5 { font-size: 1.1rem; font-weight: 700; color: #0d1910; margin: 0; }
+    .page-header p { font-size: .78rem; color: #6c757d; margin: 2px 0 0 0; }
+    .linea-dorada { width: 32px; height: 3px; background-color: #dba112; border-radius: 2px; margin-top: 5px; }
+
+    /* ── Bloque de Filtros Estructurado (Grid) ── */
+    .filtros-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .filtros-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+    .filtro-grupo { display: flex; flex-direction: column; gap: 4px; }
+    .filtro-label { font-size: .7rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; }
+    
+    .filtros-grid select, .filtros-grid input[type=text] { 
+        font-size: .82rem; border-radius: 7px; border: 1px solid #dcdcdc; 
+        padding: 6px 10px; color: #0d1910; background: #fafafa; width: 100%; transition: all 0.2s;
+    }
+    .filtros-grid select:focus, .filtros-grid input:focus { outline: none; border-color: #1b7505; box-shadow: 0 0 0 2px #e8f4e8; background: #fff; }
+    
+    /* Acciones de Filtros */
+    .filtros-acciones { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f5f5f5; align-items: center; }
+    .btn-filtrar { background: #1b7505; color: #fff; border: none; border-radius: 7px; padding: 7px 18px; font-size: .82rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s; }
+    .btn-filtrar:hover { background: #155e04; }
+    .btn-limpiar { background: transparent; color: #a8a8a7; border: 1px solid #e0e0e0; border-radius: 7px; padding: 7px 12px; font-size: .82rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; transition: all 0.2s; }
+    .btn-limpiar:hover { border-color: #dc3545; color: #dc3545; background: #fff5f5; }
+    .contador-badge { background: #f0f5ee; color: #1b7505; font-size: .75rem; font-weight: 700; padding: 5px 14px; border-radius: 20px; margin-right: auto; display: inline-flex; align-items: center; }
+
+    /* ── Marco del Mapa Contenedor (Solución a desbordamientos) ── */
+    .mapa-card { 
+        background: #fff; 
+        border-radius: 12px; 
+        border: 1px solid #cccccc; 
+        border-top: 4px solid #1b7505; /* Marco superior distintivo verde UTEQ */
+        overflow: hidden; 
+        position: relative; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        height: 600px; /* Altura fija explícita para evitar saltos en el scroll */
+    }
+    
+    /* Contenedor interno estricto para Leaflet */
+    #map { 
+        width: 100%; 
+        height: 100%; 
+        position: absolute; 
+        top: 0; 
+        bottom: 0; 
+        left: 0; 
+        right: 0; 
+        z-index: 1; 
+    }
+
+    /* ── Popup Popover Estilos ── */
+    .popup-header { font-weight: 700; font-size: .88rem; color: #0d1910; margin-bottom: 4px; }
+    .popup-codigo { font-size: .72rem; color: #a8a8a7; margin-bottom: 6px; }
+    .popup-detail { font-size: .78rem; color: #444; margin: 2px 0; display: flex; gap: 5px; }
+    .popup-detail i { color: #1b7505; flex-shrink: 0; margin-top: 1px; }
+    .popup-badge { display: inline-block; font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-bottom: 6px; }
+    .popup-foto { width: 100%; height: 95px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
+    .popup-link { display: block; text-align: center; margin-top: 6px; font-size: .78rem; font-weight: 600; color: #1b7505; text-decoration: none; border: 1px solid #1b7505; border-radius: 6px; padding: 4px 0; transition: all 0.2s; }
+    .popup-link:hover { background: #1b7505; color: #fff; }
+    .leaflet-popup-content { min-width: 210px; max-width: 240px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mapa-layout">
+
+    <div class="sidebar-modulo" id="sidebarModulo">
+        <div class="sidebar-header">
+            <span class="sidebar-titulo">Módulos</span>
+            <button class="btn-toggle-sidebar" onclick="toggleSidebar()" title="Contraer">
+                <i class="bi bi-layout-sidebar-reverse" id="iconoSidebar"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'periodos_lista' %}"><i class="bi bi-calendar3"></i><span>Periodos</span></a>
+            <a href="{% url 'facultades_lista' %}"><i class="bi bi-building"></i><span>Facultades</span></a>
+            <a href="{% url 'entidades_lista' %}"><i class="bi bi-people"></i><span>Entidades</span></a>
+            <a href="{% url 'proyectos_lista' %}"><i class="bi bi-folder2-open"></i><span>Proyectos</span></a>
+            <a href="{% url 'mapa' %}" class="active"><i class="bi bi-map"></i><span>Mapa</span></a>
+        </nav>
+
+        <div class="sidebar-section-title">Capas Temáticas</div>
+        <div class="capas-sidebar">
+            <label class="capa-switch">
+                <input type="checkbox" id="capa-proyectos" checked onchange="toggleCapaFicticia('proyectos')">
+                <span>Proyectos Vinculación</span>
+            </label>
+            <label class="capa-switch">
+                <input type="checkbox" id="capa-ods" onchange="toggleCapaFicticia('ods')">
+                <span>Capa Temática ODS</span>
+            </label>
+            <label class="capa-switch">
+                <input type="checkbox" id="capa-inec" onchange="toggleCapaFicticia('inec')">
+                <span>Zonas Priorizadas INEC</span>
+            </label>
+        </div>
+
+        <div class="sidebar-section-title">Estado del Proyecto</div>
+        <div class="leyenda-sidebar">
+            <div class="leyenda-item"><div class="leyenda-dot" style="background:#1b7505"></div>En ejecución</div>
+            <div class="leyenda-item"><div class="leyenda-dot" style="background:#dba112"></div>Propuesto</div>
+            <div class="leyenda-item"><div class="leyenda-dot" style="background:#0d6efd"></div>Aprobado</div>
+            <div class="leyenda-item"><div class="leyenda-dot" style="background:#fd7e14"></div>En cierre</div>
+            <div class="leyenda-item"><div class="leyenda-dot" style="background:#dc3545"></div>Detenido</div>
+            <div class="leyenda-item"><div class="leyenda-dot" style="background:#a8a8a7"></div>Finalizado</div>
+            <div class="leyenda-item"><div class="leyenda-dot" style="background:#6c757d"></div>Rechazado</div>
+        </div>
+    </div>
+
+    <div class="mapa-contenido">
+
+        <div class="page-header">
+            <div>
+                <h5><i class="bi bi-map me-2" style="color:#1b7505"></i>Mapa General de Proyectos</h5>
+                <p>Visualización geográfica de proyectos de vinculación con la colectividad</p>
+                <div class="linea-dorada"></div>
+            </div>
+        </div>
+
+        <div class="filtros-card">
+            <div class="filtros-grid">
+                <div class="filtro-grupo">
+                    <label class="filtro-label">Facultad</label>
+                    <select id="f-facultad" onchange="actualizarCarreras()">
+                        <option value="">Todas</option>
+                        {% for f in facultades %}
+                        <option value="{{ f.id_facultad }}">{{ f.siglas|default:f.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filtro-grupo">
+                    <label class="filtro-label">Carrera</label>
+                    <select id="f-carrera">
+                        <option value="">Todas</option>
+                        {% for c in carreras %}
+                        <option value="{{ c.id_carrera }}" data-facultad="{{ c.id_facultad_id }}">{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filtro-grupo">
+                    <label class="filtro-label">Período</label>
+                    <select id="f-periodo">
+                        <option value="">Todos</option>
+                        {% for p in periodos %}
+                        <option value="{{ p.id_periodo }}">{{ p.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filtro-grupo">
+                    <label class="filtro-label">Estado</label>
+                    <select id="f-estado">
+                        <option value="">Todos</option>
+                        <option value="EN_EJECUCION">En ejecución</option>
+                        <option value="PROPUESTO">Propuesto</option>
+                        <option value="APROBADO">Aprobado</option>
+                        <option value="EN_CIERRE">En cierre</option>
+                        <option value="DETENIDO">Detenido</option>
+                        <option value="FINALIZADO">Finalizado</option>
+                        <option value="RECHAZADO">Rechazado</option>
+                    </select>
+                </div>
+
+                <div class="filtro-grupo">
+                    <label class="filtro-label">Año</label>
+                    <select id="f-anio">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+
+                <div class="filtro-grupo">
+                    <label class="filtro-label">Buscar</label>
+                    <input type="text" id="f-buscar" placeholder="Nombre o código…">
+                </div>
+            </div>
+
+            <div class="filtros-acciones">
+                <span class="contador-badge" id="contadorBadge">
+                    <i class="bi bi-geo-alt-fill me-1"></i><span id="contadorNum">0</span> proyectos
+                </span>
+                <a href="#" class="btn-limpiar" onclick="limpiarFiltros(); return false;" title="Limpiar filtros">
+                    <i class="bi bi-x-lg me-1"></i> Limpiar
+                </a>
+                <button class="btn-filtrar" onclick="aplicarFiltros()">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </div>
+
+        <div class="mapa-card">
+            <div id="map"></div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Inicializar mapa centrado en Ecuador ──────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([-1.8312, -78.1834], 7);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 18,
+}).addTo(map);
+
+// ── Capa de marcadores ────────────────────────────────────────────
+let capaMarcadores = L.layerGroup().addTo(map);
+
+// ── Crear icono circular SVG por color ───────────────────────────
+function crearIcono(color) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+      <circle cx="14" cy="14" r="13" fill="${color}" stroke="#fff" stroke-width="2.5"/>
+      <polygon points="14,35 7,22 21,22" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+    </svg>`;
+    return L.divIcon({
+        html: svg,
+        className: '',
+        iconSize: [28, 36],
+        iconAnchor: [14, 36],
+        popupAnchor: [0, -36],
+    });
+}
+
+const ESTADO_LABEL = {
+    'EN_EJECUCION': 'En ejecución',
+    'PROPUESTO':    'Propuesto',
+    'APROBADO':     'Aprobado',
+    'EN_CIERRE':    'En cierre',
+    'DETENIDO':     'Detenido',
+    'FINALIZADO':   'Finalizado',
+    'RECHAZADO':    'Rechazado',
+};
+const ESTADO_COLOR_BG = {
+    'EN_EJECUCION': '#e8f4e8',
+    'PROPUESTO':    '#fff8e1',
+    'APROBADO':     '#e8f0ff',
+    'EN_CIERRE':    '#fff3e0',
+    'DETENIDO':     '#fff0f0',
+    'FINALIZADO':   '#f4f4f4',
+    'RECHAZADO':    '#f4f4f4',
+};
+
+// ── Cargar marcadores desde la API ───────────────────────────────
+function cargarMarcadores(params = {}) {
+    const url = new URL('{% url "api_mapa_proyectos" %}', window.location.origin);
+    Object.entries(params).forEach(([k, v]) => { if (v) url.searchParams.set(k, v); });
+
+    capaMarcadores.clearLayers();
+
+    fetch(url)
+        .then(r => r.json())
+        .then(geojson => {
+            const total = geojson.features.length;
+            document.getElementById('contadorNum').textContent = total;
+
+            if (total === 0) return;
+
+            const bounds = [];
+
+            geojson.features.forEach(f => {
+                const p   = f.properties;
+                const lat = f.geometry.coordinates[1];
+                const lng = f.geometry.coordinates[0];
+                bounds.push([lat, lng]);
+
+                const popup = `
+                    ${p.foto_url ? `<img src="${p.foto_url}" class="popup-foto" alt="foto">` : ''}
+                    <div class="popup-codigo">${p.codigo}</div>
+                    <div class="popup-header">${p.nombre_corto}</div>
+                    <span class="popup-badge" style="background:${ESTADO_COLOR_BG[p.estado]||'#f4f4f4'};color:${p.color}">
+                        ${ESTADO_LABEL[p.estado] || p.estado}
+                    </span>
+                    <div class="popup-detail"><i class="bi bi-building"></i>${p.facultad}</div>
+                    <div class="popup-detail"><i class="bi bi-mortarboard"></i>${p.carrera}</div>
+                    <div class="popup-detail"><i class="bi bi-calendar3"></i>${p.periodo}</div>
+                    ${p.canton ? `<div class="popup-detail"><i class="bi bi-geo-alt"></i>${p.canton}${p.provincia ? ', '+p.provincia : ''}</div>` : ''}
+                    ${p.fecha_inicio ? `<div class="popup-detail"><i class="bi bi-clock"></i>Inicio: ${p.fecha_inicio}</div>` : ''}
+                    ${p.ods ? `<div class="popup-detail"><i class="bi bi-globe"></i>ODS: ${p.ods}</div>` : ''}
+                    <a href="${p.url_editar}" class="popup-link"><i class="bi bi-pencil-square me-1"></i>Ver / Editar</a>
+                `;
+
+                L.marker([lat, lng], { icon: crearIcono(p.color) })
+                    .bindPopup(popup, { maxWidth: 240 })
+                    .addTo(capaMarcadores);
+            });
+
+            if (bounds.length > 0 && document.getElementById('capa-proyectos').checked) {
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+            }
+        })
+        .catch(err => console.error('Error cargando proyectos:', err));
+}
+
+// Simulación visual en consola para capas no preparadas en backend todavía
+function toggleCapaFicticia(tipo) {
+    if (tipo === 'proyectos') {
+        const checked = document.getElementById('capa-proyectos').checked;
+        if (checked) { aplicarFiltros(); } else { capaMarcadores.clearLayers(); document.getElementById('contadorNum').textContent = 0; }
+    } else {
+        const estadoCapa = document.getElementById(`capa-${tipo}`).checked;
+        console.log(`[Capa Temática] ${tipo.toUpperCase()} cambiada a visible = ${estadoCapa}.`);
+    }
+}
+
+// ── Filtros ───────────────────────────────────────────────────────
+function aplicarFiltros() {
+    if (!document.getElementById('capa-proyectos').checked) return;
+    cargarMarcadores({
+        facultad: document.getElementById('f-facultad').value,
+        carrera:  document.getElementById('f-carrera').value,
+        periodo:  document.getElementById('f-periodo').value,
+        estado:   document.getElementById('f-estado').value,
+        anio:     document.getElementById('f-anio').value,
+        buscar:   document.getElementById('f-buscar').value,
+    });
+}
+
+function limpiarFiltros() {
+    ['f-facultad','f-carrera','f-periodo','f-estado','f-anio'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('f-buscar').value = '';
+    document.querySelectorAll('#f-carrera option').forEach(o => o.hidden = false);
+    document.getElementById('capa-proyectos').checked = true;
+    cargarMarcadores();
+}
+
+function actualizarCarreras() {
+    const facultadId = document.getElementById('f-facultad').value;
+    const selectCarrera = document.getElementById('f-carrera');
+    selectCarrera.value = '';
+
+    selectCarrera.querySelectorAll('option').forEach(opt => {
+        if (!opt.value) { opt.hidden = false; return; }
+        opt.hidden = facultadId ? opt.dataset.facultad !== facultadId : false;
+    });
+}
+
+document.getElementById('f-buscar').addEventListener('keydown', e => {
+    if (e.key === 'Enter') aplicarFiltros();
+});
+
+// ── Cargar años dinámicamente ─────────────────────────────────────
+fetch('{% url "api_mapa_anios" %}')
+    .then(r => r.json())
+    .then(data => {
+        const sel = document.getElementById('f-anio');
+        data.anios.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a;
+            opt.textContent = a;
+            sel.appendChild(opt);
+        });
+    });
+
+// ── Sidebar toggle ──
+function toggleSidebar() {
+    const sb = document.getElementById('sidebarModulo');
+    sb.classList.toggle('collapsed');
+    const icon = document.getElementById('iconoSidebar');
+    icon.className = sb.classList.contains('collapsed')
+        ? 'bi bi-layout-sidebar' : 'bi bi-layout-sidebar-reverse';
+    setTimeout(() => map.invalidateSize(), 300);
+}
+
+// Carga Inicial
+cargarMarcadores();
+</script>
+{% endblock %}

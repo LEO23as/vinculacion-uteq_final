@@ -4,6 +4,7 @@ from django.utils import timezone
 from vinculacion.models import Usuario, PeriodoAcademico
 from vinculacion.utils import verificar_password
 from django.conf import settings
+from vinculacion.models import Proyecto, FotoProyecto  # ya está, solo verifica FotoProyecto
 
 def login_view(request):
     if request.session.get('usuario_id'):
@@ -635,3 +636,107 @@ def carrera_por_facultad(request):
         id_facultad=id_facultad, activo=True
     ).order_by('nombre').values('id_carrera', 'nombre')
     return JsonResponse(list(carreras), safe=False)
+
+
+
+# ── MAPA ──────────────────────────────────────────────────────────
+from django.http import JsonResponse
+
+def mapa_view(request):
+    facultades = Facultad.objects.filter(activo=True).order_by('nombre')
+    periodos   = PeriodoAcademico.objects.all().order_by('-fecha_inicio')
+    carreras   = Carrera.objects.filter(activo=True).order_by('nombre')
+
+    return render(request, 'mapa/mapa.html', {
+        'facultades': facultades,
+        'periodos':   periodos,
+        'carreras':   carreras,
+        'usuario_nombre': request.session.get('usuario_nombre'),
+        'usuario_rol':    request.session.get('usuario_rol'),
+    })
+
+
+def api_mapa_proyectos(request):
+    qs = Proyecto.objects.select_related(
+        'id_facultad', 'id_carrera', 'id_periodo_inicio'
+    ).prefetch_related('fotoproyecto_set').filter(
+        latitud__isnull=False,
+        longitud__isnull=False,
+    )
+
+    facultad_id = request.GET.get('facultad')
+    carrera_id  = request.GET.get('carrera')
+    periodo_id  = request.GET.get('periodo')
+    estado      = request.GET.get('estado')
+    anio        = request.GET.get('anio')
+    buscar      = request.GET.get('buscar', '').strip()
+
+    if facultad_id:
+        qs = qs.filter(id_facultad_id=facultad_id)
+    if carrera_id:
+        qs = qs.filter(id_carrera_id=carrera_id)
+    if periodo_id:
+        qs = qs.filter(id_periodo_inicio_id=periodo_id)
+    if estado:
+        qs = qs.filter(estado=estado)
+    if anio:
+        qs = qs.filter(fecha_inicio__year=anio)
+    if buscar:
+        from django.db.models import Q
+        qs = qs.filter(Q(nombre__icontains=buscar) | Q(codigo__icontains=buscar))
+
+    COLORES = {
+        'EN_EJECUCION': '#1b7505',
+        'PROPUESTO':    '#dba112',
+        'APROBADO':     '#0d6efd',
+        'EN_CIERRE':    '#fd7e14',
+        'DETENIDO':     '#dc3545',
+        'FINALIZADO':   '#a8a8a7',
+        'RECHAZADO':    '#6c757d',
+    }
+
+    features = []
+    for p in qs:
+        primera_foto = p.fotoproyecto_set.first()
+        foto_url = '/media/' + str(primera_foto.ruta_foto) if primera_foto else None
+
+        features.append({
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [float(p.longitud), float(p.latitud)],
+            },
+            'properties': {
+                'id':           p.id_proyecto,
+                'codigo':       p.codigo,
+                'nombre':       p.nombre,
+                'nombre_corto': p.nombre_corto or p.nombre[:60],
+                'facultad':     p.id_facultad.nombre,
+                'carrera':      p.id_carrera.nombre,
+                'periodo':      p.id_periodo_inicio.nombre,
+                'estado':       p.estado,
+                'color':        COLORES.get(p.estado, '#1b7505'),
+                'provincia':    p.provincia or '',
+                'canton':       p.canton or '',
+                'parroquia':    p.parroquia or '',
+                'fecha_inicio': str(p.fecha_inicio) if p.fecha_inicio else '',
+                'ods':          p.ods or '',
+                'foto_url':     foto_url,
+                'url_editar':   f'/proyectos/{p.id_proyecto}/editar/',
+            }
+        })
+
+    return JsonResponse({'type': 'FeatureCollection', 'features': features})
+
+
+def api_mapa_anios(request):
+    from django.db.models.functions import ExtractYear
+    anios = (
+        Proyecto.objects
+        .filter(latitud__isnull=False, fecha_inicio__isnull=False)
+        .annotate(anio=ExtractYear('fecha_inicio'))
+        .values_list('anio', flat=True)
+        .distinct()
+        .order_by('-anio')
+    )
+    return JsonResponse({'anios': list(anios)})

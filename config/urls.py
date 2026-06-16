@@ -41,4 +41,11 @@ urlpatterns = [
     path('proyectos/<int:foto_id>/eliminar-foto/', views.proyecto_eliminar_foto, name='proyecto_eliminar_foto'),
 
 
+# ── Añadir estas 3 líneas en urlpatterns dentro de config/urls.py ──
+# (después de las URLs de proyectos, antes del cierre de la lista)
+
+path('mapa/', views.mapa_view, name='mapa'),
+path('api/mapa/proyectos/', views.api_mapa_proyectos, name='api_mapa_proyectos'),
+path('api/mapa/anios/', views.api_mapa_anios, name='api_mapa_anios'),
+
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
