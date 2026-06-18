@@ -435,3 +435,49 @@ class ProyectoBeneficiario(models.Model):
     class Meta:
         managed = False
         db_table = 'proyecto_beneficiario'
+class Convenio(models.Model):
+    ESTADO_CHOICES = [
+        ('VIGENTE', 'Vigente'),
+        ('VENCIDO', 'Vencido'),
+        ('RENOVADO', 'Renovado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    id_convenio = models.AutoField(primary_key=True)
+    id_proyecto = models.ForeignKey('Proyecto', on_delete=models.CASCADE, db_column='id_proyecto')
+    id_entidad = models.ForeignKey('EntidadCooperante', on_delete=models.CASCADE, db_column='id_entidad')
+    id_periodo = models.ForeignKey('PeriodoAcademico', on_delete=models.CASCADE, db_column='id_periodo')
+    numero_memorando = models.CharField(max_length=100, null=True, blank=True)
+    fecha_firma = models.DateField(null=True, blank=True)
+    fecha_inicio = models.DateField(null=True, blank=True)
+    fecha_fin = models.DateField(null=True, blank=True)
+    duracion_anios = models.IntegerField(null=True, blank=True, default=2)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='VIGENTE')
+    estudiantes_asignados = models.IntegerField(null=True, blank=True)
+    observaciones = models.TextField(null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'convenio'
+
+    def __str__(self):
+        return f"Convenio {self.numero_memorando or self.id_convenio}"
+
+
+class AnexoConvenio(models.Model):
+    id_anexo = models.AutoField(primary_key=True)
+    id_convenio = models.ForeignKey('Convenio', on_delete=models.CASCADE, db_column='id_convenio', related_name='anexos')
+    nombre_archivo = models.CharField(max_length=255)
+    ruta_archivo = models.CharField(max_length=500)
+    tipo_documento = models.CharField(max_length=100, null=True, blank=True)
+    tamanio_kb = models.IntegerField(null=True, blank=True)
+    descripcion = models.CharField(max_length=300, null=True, blank=True)
+    subido_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'anexo_convenio'
+
+    def __str__(self):
+        return self.nombre_archivo

@@ -3,8 +3,6 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from vinculacion import views
-from django.conf import settings
-from django.conf.urls.static import static 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,7 +29,6 @@ urlpatterns = [
     path('entidades/nueva/', views.entidad_nueva, name='entidad_nueva'),
     path('entidades/<int:id>/editar/', views.entidad_editar, name='entidad_editar'),
     path('entidades/<int:id>/toggle/', views.entidad_toggle, name='entidad_toggle'),
-
     # Proyectos
     path('proyectos/', views.proyectos_lista, name='proyectos_lista'),
     path('proyectos/nuevo/', views.proyecto_nuevo, name='proyecto_nuevo'),
@@ -39,13 +36,17 @@ urlpatterns = [
     path('proyectos/<int:id>/toggle/', views.proyecto_toggle, name='proyecto_toggle'),
     path('api/carreras-por-facultad/', views.carrera_por_facultad, name='carrera_por_facultad'),
     path('proyectos/<int:foto_id>/eliminar-foto/', views.proyecto_eliminar_foto, name='proyecto_eliminar_foto'),
-
-
-# ── Añadir estas 3 líneas en urlpatterns dentro de config/urls.py ──
-# (después de las URLs de proyectos, antes del cierre de la lista)
-
-path('mapa/', views.mapa_view, name='mapa'),
-path('api/mapa/proyectos/', views.api_mapa_proyectos, name='api_mapa_proyectos'),
-path('api/mapa/anios/', views.api_mapa_anios, name='api_mapa_anios'),
-
+    # Mapa
+    path('mapa/', views.mapa_view, name='mapa'),
+    path('api/mapa/proyectos/', views.api_mapa_proyectos, name='api_mapa_proyectos'),
+    path('api/mapa/anios/', views.api_mapa_anios, name='api_mapa_anios'),
+    # Convenios
+    path('convenios/', views.convenios_lista, name='convenios_lista'),
+    path('convenios/crear/', views.convenio_crear, name='convenio_crear'),
+    path('convenios/<int:id>/editar/', views.convenio_editar, name='convenio_editar'),
+    path('convenios/<int:id>/eliminar/', views.convenio_eliminar, name='convenio_eliminar'),
+    path('convenios/<int:id>/detalle/', views.convenio_detalle, name='convenio_detalle'),
+    # Anexos de convenio
+    path('convenios/<int:id_convenio>/anexos/subir/', views.anexo_subir, name='anexo_subir'),
+    path('convenios/anexos/<int:id_anexo>/eliminar/', views.anexo_eliminar, name='anexo_eliminar'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

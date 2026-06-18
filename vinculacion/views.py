@@ -1,10 +1,20 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
-from vinculacion.models import Usuario, PeriodoAcademico
-from vinculacion.utils import verificar_password
+from django.http import JsonResponse
+from django.db.models import Q
+from django.db.models.functions import ExtractYear
 from django.conf import settings
-from vinculacion.models import Proyecto, FotoProyecto  # ya está, solo verifica FotoProyecto
+import os
+import uuid
+
+from vinculacion.models import (
+    Usuario, PeriodoAcademico, Facultad, Carrera,
+    EntidadCooperante, TipoEntidad, Proyecto, FotoProyecto,
+    Convenio, AnexoConvenio
+)
+from vinculacion.utils import verificar_password
+
 
 def login_view(request):
     if request.session.get('usuario_id'):
@@ -160,9 +170,8 @@ def periodo_toggle(request, id):
     messages.success(request, f'Periodo "{periodo.nombre}" {estado}.')
     return redirect('periodos_lista')
 
-# ── FACULTADES Y CARRERAS ──────────────────────────────────────────
 
-from vinculacion.models import Facultad, Carrera
+# ── FACULTADES Y CARRERAS ──────────────────────────────────────────
 
 def facultades_lista(request):
     facultades = Facultad.objects.all().order_by('nombre')
@@ -275,19 +284,25 @@ def carrera_toggle(request, id):
     messages.success(request, f'Carrera "{carrera.nombre}" {estado}.')
     return redirect('carreras_lista')
 
-# ── ENTIDADES COOPERANTES ──────────────────────────────────────────
 
-from vinculacion.models import EntidadCooperante, TipoEntidad
+def carrera_por_facultad(request):
+    id_facultad = request.GET.get('facultad_id')
+    carreras = Carrera.objects.filter(
+        id_facultad=id_facultad, activo=True
+    ).order_by('nombre').values('id_carrera', 'nombre')
+    return JsonResponse(list(carreras), safe=False)
+
+
+# ── ENTIDADES COOPERANTES ──────────────────────────────────────────
 
 def entidades_lista(request):
     entidades = EntidadCooperante.objects.select_related('id_tipo').all().order_by('nombre')
     tipos = TipoEntidad.objects.all().order_by('nombre')
-    
-    # Filtros
+
     filtro_tipo = request.GET.get('tipo', '')
     filtro_estado = request.GET.get('estado', '')
     busqueda = request.GET.get('q', '')
-    
+
     if filtro_tipo:
         entidades = entidades.filter(id_tipo__id_tipo=filtro_tipo)
     if filtro_estado == '1':
@@ -296,7 +311,7 @@ def entidades_lista(request):
         entidades = entidades.filter(activo=False)
     if busqueda:
         entidades = entidades.filter(nombre__icontains=busqueda)
-    
+
     return render(request, 'entidades/lista.html', {
         'entidades': entidades,
         'tipos': tipos,
@@ -409,11 +424,11 @@ def entidad_toggle(request, id):
     messages.success(request, f'Entidad "{entidad.nombre}" {estado}.')
     return redirect('entidades_lista')
 
+
 # ── PROYECTOS ──────────────────────────────────────────────────────
 
-from vinculacion.models import Proyecto, FotoProyecto
+ESTADOS_PROYECTO = ['EN_EJECUCION', 'PROPUESTO', 'APROBADO', 'EN_CIERRE', 'DETENIDO', 'FINALIZADO', 'RECHAZADO']
 
-ESTADOS_PROYECTO = ['EN_EJECUCION', 'PROPUESTO', 'APROBADO', 'EN_CIERRE', 'DETENIDO', 'FINALIZADO', 'RECHAZADO', 'SUSPENDIDO']
 
 def proyectos_lista(request):
     proyectos = Proyecto.objects.select_related(
@@ -429,8 +444,9 @@ def proyectos_lista(request):
     if filtro_facultad:
         proyectos = proyectos.filter(id_facultad__id_facultad=filtro_facultad)
     if busqueda:
-        proyectos = proyectos.filter(nombre__icontains=busqueda) | \
-                    proyectos.filter(codigo__icontains=busqueda)
+        proyectos = proyectos.filter(
+            Q(nombre__icontains=busqueda) | Q(codigo__icontains=busqueda)
+        )
 
     facultades = Facultad.objects.filter(activo=True).order_by('nombre')
 
@@ -445,10 +461,8 @@ def proyectos_lista(request):
 
 
 def _guardar_fotos(request, proyecto):
-    """Guarda las fotos subidas asociadas a un proyecto."""
     fotos = request.FILES.getlist('fotos')
     for foto in fotos:
-        import os
         carpeta = f'proyectos/{proyecto.id_proyecto}/'
         ruta_completa = os.path.join(settings.MEDIA_ROOT, carpeta)
         os.makedirs(ruta_completa, exist_ok=True)
@@ -469,7 +483,7 @@ def proyecto_nuevo(request):
     facultades = Facultad.objects.filter(activo=True).order_by('nombre')
     periodos = PeriodoAcademico.objects.filter(activo=True).order_by('-fecha_inicio')
     entidades = EntidadCooperante.objects.filter(activo=True).order_by('nombre')
-    
+
     if request.method == 'POST':
         codigo = request.POST.get('codigo', '').strip()
         nombre = request.POST.get('nombre', '').strip()
@@ -499,7 +513,6 @@ def proyecto_nuevo(request):
         try:
             lat = request.POST.get('latitud', '').strip() or None
             lng = request.POST.get('longitud', '').strip() or None
-
             proyecto = Proyecto.objects.create(
                 codigo=codigo,
                 nombre=nombre,
@@ -570,7 +583,6 @@ def proyecto_editar(request, id):
         try:
             lat = request.POST.get('latitud', '').strip() or None
             lng = request.POST.get('longitud', '').strip() or None
-
             proyecto.codigo = codigo
             proyecto.nombre = nombre
             proyecto.nombre_corto = request.POST.get('nombre_corto', '').strip() or None
@@ -604,7 +616,6 @@ def proyecto_editar(request, id):
 
 
 def proyecto_eliminar_foto(request, foto_id):
-    import os
     foto = get_object_or_404(FotoProyecto, id_foto=foto_id)
     proyecto_id = foto.id_proyecto.id_proyecto
     ruta = os.path.join(settings.MEDIA_ROOT, foto.ruta_foto)
@@ -629,30 +640,19 @@ def proyecto_toggle(request, id):
     return redirect('proyectos_lista')
 
 
-def carrera_por_facultad(request):
-    from django.http import JsonResponse
-    id_facultad = request.GET.get('facultad_id')
-    carreras = Carrera.objects.filter(
-        id_facultad=id_facultad, activo=True
-    ).order_by('nombre').values('id_carrera', 'nombre')
-    return JsonResponse(list(carreras), safe=False)
-
-
-
 # ── MAPA ──────────────────────────────────────────────────────────
-from django.http import JsonResponse
 
 def mapa_view(request):
     facultades = Facultad.objects.filter(activo=True).order_by('nombre')
-    periodos   = PeriodoAcademico.objects.all().order_by('-fecha_inicio')
-    carreras   = Carrera.objects.filter(activo=True).order_by('nombre')
+    periodos = PeriodoAcademico.objects.all().order_by('-fecha_inicio')
+    carreras = Carrera.objects.filter(activo=True).order_by('nombre')
 
     return render(request, 'mapa/mapa.html', {
         'facultades': facultades,
-        'periodos':   periodos,
-        'carreras':   carreras,
+        'periodos': periodos,
+        'carreras': carreras,
         'usuario_nombre': request.session.get('usuario_nombre'),
-        'usuario_rol':    request.session.get('usuario_rol'),
+        'usuario_rol': request.session.get('usuario_rol'),
     })
 
 
@@ -665,11 +665,11 @@ def api_mapa_proyectos(request):
     )
 
     facultad_id = request.GET.get('facultad')
-    carrera_id  = request.GET.get('carrera')
-    periodo_id  = request.GET.get('periodo')
-    estado      = request.GET.get('estado')
-    anio        = request.GET.get('anio')
-    buscar      = request.GET.get('buscar', '').strip()
+    carrera_id = request.GET.get('carrera')
+    periodo_id = request.GET.get('periodo')
+    estado = request.GET.get('estado')
+    anio = request.GET.get('anio')
+    buscar = request.GET.get('buscar', '').strip()
 
     if facultad_id:
         qs = qs.filter(id_facultad_id=facultad_id)
@@ -682,7 +682,6 @@ def api_mapa_proyectos(request):
     if anio:
         qs = qs.filter(fecha_inicio__year=anio)
     if buscar:
-        from django.db.models import Q
         qs = qs.filter(Q(nombre__icontains=buscar) | Q(codigo__icontains=buscar))
 
     COLORES = {
@@ -699,7 +698,6 @@ def api_mapa_proyectos(request):
     for p in qs:
         primera_foto = p.fotoproyecto_set.first()
         foto_url = '/media/' + str(primera_foto.ruta_foto) if primera_foto else None
-
         features.append({
             'type': 'Feature',
             'geometry': {
@@ -730,7 +728,6 @@ def api_mapa_proyectos(request):
 
 
 def api_mapa_anios(request):
-    from django.db.models.functions import ExtractYear
     anios = (
         Proyecto.objects
         .filter(latitud__isnull=False, fecha_inicio__isnull=False)
@@ -740,3 +737,201 @@ def api_mapa_anios(request):
         .order_by('-anio')
     )
     return JsonResponse({'anios': list(anios)})
+
+
+# ── CONVENIOS ──────────────────────────────────────────────────────
+
+def convenios_lista(request):
+    if not request.session.get('usuario_id'):
+        return redirect('login')
+
+    query = request.GET.get('q', '')
+    estado = request.GET.get('estado', '')
+    id_periodo = request.GET.get('periodo', '')
+
+    convenios = Convenio.objects.select_related(
+        'id_proyecto', 'id_entidad', 'id_periodo'
+    ).order_by('-creado_en')
+
+    if query:
+        convenios = convenios.filter(
+            Q(numero_memorando__icontains=query) |
+            Q(id_entidad__nombre__icontains=query) |
+            Q(id_proyecto__nombre__icontains=query)
+        )
+    if estado:
+        convenios = convenios.filter(estado=estado)
+    if id_periodo:
+        convenios = convenios.filter(id_periodo=id_periodo)
+
+    periodos = PeriodoAcademico.objects.order_by('-fecha_inicio')
+
+    return render(request, 'convenios/lista.html', {
+        'convenios': convenios,
+        'periodos': periodos,
+        'query': query,
+        'estado_filtro': estado,
+        'periodo_filtro': id_periodo,
+        'estados': ['VIGENTE', 'VENCIDO', 'RENOVADO', 'CANCELADO'],
+    })
+
+
+def convenio_crear(request):
+    if not request.session.get('usuario_id'):
+        return redirect('login')
+
+    if request.method == 'POST':
+        try:
+            convenio = Convenio(
+                id_proyecto=Proyecto.objects.get(pk=request.POST['id_proyecto']),
+                id_entidad=EntidadCooperante.objects.get(pk=request.POST['id_entidad']),
+                id_periodo=PeriodoAcademico.objects.get(pk=request.POST['id_periodo']),
+                numero_memorando=request.POST.get('numero_memorando') or None,
+                fecha_firma=request.POST.get('fecha_firma') or None,
+                fecha_inicio=request.POST.get('fecha_inicio') or None,
+                fecha_fin=request.POST.get('fecha_fin') or None,
+                duracion_anios=request.POST.get('duracion_anios') or 2,
+                estado=request.POST.get('estado', 'VIGENTE'),
+                estudiantes_asignados=request.POST.get('estudiantes_asignados') or None,
+                observaciones=request.POST.get('observaciones') or None,
+            )
+            convenio.save()
+            messages.success(request, 'Convenio registrado correctamente.')
+            return redirect('convenio_detalle', id=convenio.pk)
+        except Exception as e:
+            messages.error(request, f'Error al guardar: {e}')
+
+    proyectos = Proyecto.objects.filter(estado__in=['APROBADO', 'EN_EJECUCION']).order_by('nombre')
+    entidades = EntidadCooperante.objects.filter(activo=True).order_by('nombre')
+    periodos = PeriodoAcademico.objects.order_by('-fecha_inicio')
+
+    return render(request, 'convenios/form.html', {
+        'proyectos': proyectos,
+        'entidades': entidades,
+        'periodos': periodos,
+        'estados': ['VIGENTE', 'VENCIDO', 'RENOVADO', 'CANCELADO'],
+        'accion': 'Registrar',
+    })
+
+
+def convenio_editar(request, id):
+    if not request.session.get('usuario_id'):
+        return redirect('login')
+
+    convenio = get_object_or_404(Convenio, pk=id)
+
+    if request.method == 'POST':
+        try:
+            convenio.id_proyecto = Proyecto.objects.get(pk=request.POST['id_proyecto'])
+            convenio.id_entidad = EntidadCooperante.objects.get(pk=request.POST['id_entidad'])
+            convenio.id_periodo = PeriodoAcademico.objects.get(pk=request.POST['id_periodo'])
+            convenio.numero_memorando = request.POST.get('numero_memorando') or None
+            convenio.fecha_firma = request.POST.get('fecha_firma') or None
+            convenio.fecha_inicio = request.POST.get('fecha_inicio') or None
+            convenio.fecha_fin = request.POST.get('fecha_fin') or None
+            convenio.duracion_anios = request.POST.get('duracion_anios') or 2
+            convenio.estado = request.POST.get('estado', 'VIGENTE')
+            convenio.estudiantes_asignados = request.POST.get('estudiantes_asignados') or None
+            convenio.observaciones = request.POST.get('observaciones') or None
+            convenio.save()
+            messages.success(request, 'Convenio actualizado correctamente.')
+            return redirect('convenio_detalle', id=convenio.pk)
+        except Exception as e:
+            messages.error(request, f'Error al actualizar: {e}')
+
+    proyectos = Proyecto.objects.filter(estado__in=['APROBADO', 'EN_EJECUCION']).order_by('nombre')
+    entidades = EntidadCooperante.objects.filter(activo=True).order_by('nombre')
+    periodos = PeriodoAcademico.objects.order_by('-fecha_inicio')
+
+    return render(request, 'convenios/form.html', {
+        'convenio': convenio,
+        'proyectos': proyectos,
+        'entidades': entidades,
+        'periodos': periodos,
+        'estados': ['VIGENTE', 'VENCIDO', 'RENOVADO', 'CANCELADO'],
+        'accion': 'Editar',
+    })
+
+
+def convenio_eliminar(request, id):
+    if not request.session.get('usuario_id'):
+        return redirect('login')
+
+    if request.method == 'POST':
+        convenio = get_object_or_404(Convenio, pk=id)
+        for anexo in convenio.anexos.all():
+            ruta = os.path.join(settings.MEDIA_ROOT, anexo.ruta_archivo)
+            if os.path.exists(ruta):
+                os.remove(ruta)
+        convenio.delete()
+        messages.success(request, 'Convenio eliminado correctamente.')
+    return redirect('convenios_lista')
+
+
+def convenio_detalle(request, id):
+    if not request.session.get('usuario_id'):
+        return redirect('login')
+
+    convenio = get_object_or_404(
+        Convenio.objects.select_related('id_proyecto', 'id_entidad', 'id_periodo'),
+        pk=id
+    )
+    anexos = convenio.anexos.all().order_by('-subido_en')
+
+    return render(request, 'convenios/detalle.html', {
+        'convenio': convenio,
+        'anexos': anexos,
+    })
+
+
+# ── ANEXOS ────────────────────────────────────────────────────────
+
+def anexo_subir(request, id_convenio):
+    if not request.session.get('usuario_id'):
+        return redirect('login')
+
+    if request.method == 'POST' and request.FILES.get('archivo'):
+        convenio = get_object_or_404(Convenio, pk=id_convenio)
+        archivo = request.FILES['archivo']
+
+        carpeta = os.path.join(settings.MEDIA_ROOT, 'convenios', str(id_convenio))
+        os.makedirs(carpeta, exist_ok=True)
+
+        ext = os.path.splitext(archivo.name)[1].lower()
+        nombre_unico = f"{uuid.uuid4().hex}{ext}"
+        ruta_completa = os.path.join(carpeta, nombre_unico)
+
+        with open(ruta_completa, 'wb+') as f:
+            for chunk in archivo.chunks():
+                f.write(chunk)
+
+        tamanio_kb = archivo.size // 1024
+
+        AnexoConvenio.objects.create(
+            id_convenio=convenio,
+            nombre_archivo=archivo.name,
+            ruta_archivo=f'convenios/{id_convenio}/{nombre_unico}',
+            tipo_documento=request.POST.get('tipo_documento') or None,
+            tamanio_kb=tamanio_kb,
+            descripcion=request.POST.get('descripcion') or None,
+        )
+        messages.success(request, 'Anexo subido correctamente.')
+
+    return redirect('convenio_detalle', id=id_convenio)
+
+
+def anexo_eliminar(request, id_anexo):
+    if not request.session.get('usuario_id'):
+        return redirect('login')
+
+    if request.method == 'POST':
+        anexo = get_object_or_404(AnexoConvenio, pk=id_anexo)
+        id_convenio = anexo.id_convenio.pk
+        ruta = os.path.join(settings.MEDIA_ROOT, anexo.ruta_archivo)
+        if os.path.exists(ruta):
+            os.remove(ruta)
+        anexo.delete()
+        messages.success(request, 'Anexo eliminado.')
+        return redirect('convenio_detalle', id=id_convenio)
+
+    return redirect('convenios_lista')
