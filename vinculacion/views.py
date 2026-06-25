@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.db.models.functions import ExtractYear
 from django.conf import settings
 import os
@@ -11,7 +11,7 @@ import uuid
 from vinculacion.models import (
     Usuario, PeriodoAcademico, Facultad, Carrera,
     EntidadCooperante, TipoEntidad, Proyecto, FotoProyecto,
-    Convenio, AnexoConvenio
+    Convenio, AnexoConvenio, ProyectoDocente, ProyectoEstudiante
 )
 from vinculacion.utils import verificar_password
 
@@ -85,10 +85,19 @@ def cambiar_clave_view(request):
 
 
 def dashboard_view(request):
-    return render(request, 'dashboard.html', {
+    ctx = {
         'usuario_nombre': request.session.get('usuario_nombre'),
         'usuario_rol': request.session.get('usuario_rol'),
-    })
+    }
+    try:
+        from vinculacion.models import Proyecto, EntidadCooperante, Convenio, ProyectoDocente
+        ctx['total_proyectos'] = Proyecto.objects.count()
+        ctx['total_entidades'] = EntidadCooperante.objects.filter(activo=True).count()
+        ctx['total_convenios'] = Convenio.objects.count()
+        ctx['total_docentes'] = ProyectoDocente.objects.values('docente').distinct().count()
+    except Exception:
+        pass
+    return render(request, 'dashboard.html', ctx)
 
 
 # ── PERIODOS ACADÉMICOS ────────────────────────────────────────────
@@ -935,3 +944,275 @@ def anexo_eliminar(request, id_anexo):
         return redirect('convenio_detalle', id=id_convenio)
 
     return redirect('convenios_lista')
+
+
+# ── DETALLE DE PROYECTO ───────────────────────────────────────────
+
+def proyecto_detalle(request, id):
+    proyecto = get_object_or_404(
+        Proyecto.objects.select_related('id_facultad', 'id_carrera', 'id_periodo_inicio'),
+        id_proyecto=id,
+    )
+    fotos = FotoProyecto.objects.filter(id_proyecto=proyecto).order_by('subida_en')
+    convenios = Convenio.objects.filter(id_proyecto=proyecto).select_related('id_entidad', 'id_periodo').order_by('-creado_en')
+    return render(request, 'proyectos/detalle.html', {
+        'proyecto': proyecto,
+        'fotos': fotos,
+        'convenios': convenios,
+    })
+
+
+def api_proyecto_detalle(request, id):
+    """JSON para el modal del mapa."""
+    proyecto = get_object_or_404(
+        Proyecto.objects.select_related('id_facultad', 'id_carrera', 'id_periodo_inicio'),
+        id_proyecto=id,
+    )
+    fotos = list(FotoProyecto.objects.filter(id_proyecto=proyecto).values('ruta_foto', 'titulo'))
+    fotos_urls = [{'url': '/media/' + f['ruta_foto'], 'titulo': f['titulo']} for f in fotos]
+    convenios_count = Convenio.objects.filter(id_proyecto=proyecto).count()
+
+    COLORES = {
+        'EN_EJECUCION': '#1b7505', 'PROPUESTO': '#dba112', 'APROBADO': '#0d6efd',
+        'EN_CIERRE': '#fd7e14', 'DETENIDO': '#dc3545', 'FINALIZADO': '#a8a8a7', 'RECHAZADO': '#6c757d',
+    }
+    ESTADO_LABEL = {
+        'EN_EJECUCION': 'En ejecución', 'PROPUESTO': 'Propuesto', 'APROBADO': 'Aprobado',
+        'EN_CIERRE': 'En cierre', 'DETENIDO': 'Detenido', 'FINALIZADO': 'Finalizado', 'RECHAZADO': 'Rechazado',
+    }
+
+    return JsonResponse({
+        'id': proyecto.id_proyecto,
+        'codigo': proyecto.codigo,
+        'nombre': proyecto.nombre,
+        'nombre_corto': proyecto.nombre_corto or '',
+        'facultad': proyecto.id_facultad.nombre,
+        'carrera': proyecto.id_carrera.nombre,
+        'periodo': proyecto.id_periodo_inicio.nombre,
+        'estado': proyecto.estado,
+        'estado_label': ESTADO_LABEL.get(proyecto.estado, proyecto.estado),
+        'color': COLORES.get(proyecto.estado, '#1b7505'),
+        'provincia': proyecto.provincia or '',
+        'canton': proyecto.canton or '',
+        'parroquia': proyecto.parroquia or '',
+        'sector': proyecto.sector or '',
+        'descripcion': proyecto.descripcion or '',
+        'objetivo_general': proyecto.objetivo_general or '',
+        'ods': proyecto.ods or '',
+        'alcance': proyecto.alcance or '',
+        'linea_vinculacion': proyecto.linea_vinculacion or '',
+        'fecha_inicio': str(proyecto.fecha_inicio) if proyecto.fecha_inicio else '',
+        'fecha_fin_planificada': str(proyecto.fecha_fin_planificada) if proyecto.fecha_fin_planificada else '',
+        'fotos': fotos_urls,
+        'convenios_count': convenios_count,
+        'url_detalle': f'/proyectos/{proyecto.id_proyecto}/detalle/',
+        'url_editar': f'/proyectos/{proyecto.id_proyecto}/editar/',
+    })
+
+
+# ── EDICIÓN RÁPIDA (modal mapa) ───────────────────────────────────
+
+def api_proyecto_editar_rapido(request, id):
+    if not request.session.get('usuario_id'):
+        return JsonResponse({'ok': False, 'error': 'No autenticado'}, status=401)
+
+    proyecto = get_object_or_404(Proyecto, id_proyecto=id)
+
+    if request.method == 'GET':
+        fotos = list(FotoProyecto.objects.filter(id_proyecto=proyecto).values('id_foto', 'ruta_foto', 'titulo'))
+        return JsonResponse({
+            'ok': True,
+            'proyecto': {
+                'id': proyecto.id_proyecto,
+                'codigo': proyecto.codigo,
+                'nombre': proyecto.nombre,
+                'nombre_corto': proyecto.nombre_corto or '',
+                'estado': proyecto.estado,
+                'descripcion': proyecto.descripcion or '',
+                'objetivo_general': proyecto.objetivo_general or '',
+                'provincia': proyecto.provincia or '',
+                'canton': proyecto.canton or '',
+                'parroquia': proyecto.parroquia or '',
+                'sector': proyecto.sector or '',
+                'latitud': str(proyecto.latitud) if proyecto.latitud else '',
+                'longitud': str(proyecto.longitud) if proyecto.longitud else '',
+                'ods': proyecto.ods or '',
+                'linea_vinculacion': proyecto.linea_vinculacion or '',
+                'observaciones': proyecto.observaciones or '',
+                'fotos': [{'id': f['id_foto'], 'url': '/media/' + f['ruta_foto'], 'titulo': f['titulo']} for f in fotos],
+            }
+        })
+
+    if request.method == 'POST':
+        try:
+            proyecto.estado = request.POST.get('estado', proyecto.estado)
+            proyecto.nombre = request.POST.get('nombre', proyecto.nombre).strip() or proyecto.nombre
+            proyecto.nombre_corto = request.POST.get('nombre_corto', '').strip() or None
+            proyecto.descripcion = request.POST.get('descripcion', '').strip() or None
+            proyecto.objetivo_general = request.POST.get('objetivo_general', '').strip() or None
+            proyecto.provincia = request.POST.get('provincia', '').strip() or None
+            proyecto.canton = request.POST.get('canton', '').strip() or None
+            proyecto.parroquia = request.POST.get('parroquia', '').strip() or None
+            proyecto.sector = request.POST.get('sector', '').strip() or None
+            lat = request.POST.get('latitud', '').strip()
+            lng = request.POST.get('longitud', '').strip()
+            proyecto.latitud = lat if lat else None
+            proyecto.longitud = lng if lng else None
+            proyecto.ods = request.POST.get('ods', '').strip() or None
+            proyecto.linea_vinculacion = request.POST.get('linea_vinculacion', '').strip() or None
+            proyecto.observaciones = request.POST.get('observaciones', '').strip() or None
+            proyecto.actualizado_en = timezone.now()
+            proyecto.save()
+            # Fotos nuevas
+            for foto in request.FILES.getlist('fotos'):
+                carpeta = f'proyectos/{proyecto.id_proyecto}/'
+                ruta_completa = os.path.join(settings.MEDIA_ROOT, carpeta)
+                os.makedirs(ruta_completa, exist_ok=True)
+                ruta_final = os.path.join(ruta_completa, foto.name)
+                with open(ruta_final, 'wb+') as fh:
+                    for chunk in foto.chunks():
+                        fh.write(chunk)
+                FotoProyecto.objects.create(
+                    id_proyecto=proyecto,
+                    ruta_foto=f'{carpeta}{foto.name}',
+                    titulo=foto.name,
+                    subida_en=timezone.now(),
+                )
+            # Eliminar fotos marcadas
+            for foto_id in request.POST.getlist('eliminar_foto'):
+                try:
+                    foto = FotoProyecto.objects.get(id_foto=foto_id, id_proyecto=proyecto)
+                    ruta = os.path.join(settings.MEDIA_ROOT, foto.ruta_foto)
+                    if os.path.exists(ruta):
+                        os.remove(ruta)
+                    foto.delete()
+                except FotoProyecto.DoesNotExist:
+                    pass
+            return JsonResponse({'ok': True, 'mensaje': 'Proyecto actualizado correctamente.'})
+        except Exception as e:
+            return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
+    return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+
+
+# ── REPORTES ─────────────────────────────────────────────────────
+
+def reportes_view(request):
+    # KPIs principales
+    total_proyectos = Proyecto.objects.count()
+    proyectos_activos = Proyecto.objects.filter(estado='EN_EJECUCION').count()
+    total_entidades = EntidadCooperante.objects.filter(activo=True).count()
+    total_convenios = Convenio.objects.count()
+    convenios_vigentes = Convenio.objects.filter(estado='VIGENTE').count()
+
+    # Proyectos por estado
+    por_estado_qs = (
+        Proyecto.objects
+        .values('estado')
+        .annotate(total=Count('id_proyecto'))
+        .order_by('-total')
+    )
+    ESTADO_LABEL = {
+        'EN_EJECUCION': 'En ejecución', 'PROPUESTO': 'Propuesto', 'APROBADO': 'Aprobado',
+        'EN_CIERRE': 'En cierre', 'DETENIDO': 'Detenido', 'FINALIZADO': 'Finalizado', 'RECHAZADO': 'Rechazado',
+    }
+    ESTADO_COLOR = {
+        'EN_EJECUCION': '#1b7505', 'PROPUESTO': '#dba112', 'APROBADO': '#0d6efd',
+        'EN_CIERRE': '#fd7e14', 'DETENIDO': '#dc3545', 'FINALIZADO': '#a8a8a7', 'RECHAZADO': '#6c757d',
+    }
+    por_estado = [
+        {
+            'estado': x['estado'],
+            'label': ESTADO_LABEL.get(x['estado'], x['estado']),
+            'total': x['total'],
+            'color': ESTADO_COLOR.get(x['estado'], '#a8a8a7'),
+            'pct': round(x['total'] / total_proyectos * 100) if total_proyectos else 0,
+        }
+        for x in por_estado_qs
+    ]
+
+    # Proyectos por facultad
+    por_facultad = (
+        Proyecto.objects
+        .values('id_facultad__nombre', 'id_facultad__nombre_corto')
+        .annotate(total=Count('id_proyecto'))
+        .order_by('-total')[:8]
+    )
+
+    # Proyectos por período (top 8)
+    por_periodo = (
+        Proyecto.objects
+        .values('id_periodo_inicio__nombre', 'id_periodo_inicio__codigo')
+        .annotate(total=Count('id_proyecto'))
+        .order_by('-total')[:8]
+    )
+
+    # Convenios por estado
+    convenios_por_estado = (
+        Convenio.objects
+        .values('estado')
+        .annotate(total=Count('id_convenio'))
+        .order_by('-total')
+    )
+    CONV_COLOR = {
+        'VIGENTE': '#1b7505', 'VENCIDO': '#dc3545',
+        'RENOVADO': '#0d6efd', 'CANCELADO': '#a8a8a7',
+    }
+    convenios_estado_list = [
+        {'estado': x['estado'], 'total': x['total'], 'color': CONV_COLOR.get(x['estado'], '#a8a8a7')}
+        for x in convenios_por_estado
+    ]
+
+    # Entidades por tipo
+    entidades_por_tipo = (
+        EntidadCooperante.objects
+        .filter(activo=True)
+        .values('id_tipo__nombre')
+        .annotate(total=Count('id_entidad'))
+        .order_by('-total')[:6]
+    )
+
+    # Proyectos con geolocalización
+    proyectos_geo = Proyecto.objects.filter(latitud__isnull=False, longitud__isnull=False).count()
+
+    # Proyectos por provincia (top 10)
+    por_provincia = list(
+        Proyecto.objects
+        .exclude(provincia__isnull=True).exclude(provincia='')
+        .values('provincia')
+        .annotate(total=Count('id_proyecto'))
+        .order_by('-total')[:10]
+    )
+
+    # Proyectos por canton (top 8)
+    por_canton = list(
+        Proyecto.objects
+        .exclude(canton__isnull=True).exclude(canton='')
+        .values('canton', 'provincia')
+        .annotate(total=Count('id_proyecto'))
+        .order_by('-total')[:8]
+    )
+
+    # Últimos proyectos registrados
+    ultimos_proyectos = Proyecto.objects.select_related(
+        'id_facultad', 'id_periodo_inicio'
+    ).order_by('-creado_en')[:5]
+
+    return render(request, 'reportes/dashboard.html', {
+        'total_proyectos': total_proyectos,
+        'proyectos_activos': proyectos_activos,
+        'total_entidades': total_entidades,
+        'total_convenios': total_convenios,
+        'convenios_vigentes': convenios_vigentes,
+        'proyectos_geo': proyectos_geo,
+        'por_estado': por_estado,
+        'por_facultad': por_facultad,
+        'por_periodo': por_periodo,
+        'convenios_estado_list': convenios_estado_list,
+        'entidades_por_tipo': entidades_por_tipo,
+        'ultimos_proyectos': ultimos_proyectos,
+        'por_provincia': por_provincia,
+        'por_canton': por_canton,
+        'ESTADO_COLOR': ESTADO_COLOR,
+        'ESTADO_LABEL': ESTADO_LABEL,
+    })
