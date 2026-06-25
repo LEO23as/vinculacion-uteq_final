@@ -331,26 +331,6 @@ class ProyectoEstudiante(models.Model):
         db_table = 'proyecto_estudiante'
 
 
-class Convenio(models.Model):
-    id_convenio = models.AutoField(primary_key=True)
-    id_proyecto = models.ForeignKey(Proyecto, models.DO_NOTHING, db_column='id_proyecto')
-    id_entidad = models.ForeignKey(EntidadCooperante, models.DO_NOTHING, db_column='id_entidad')
-    id_periodo = models.ForeignKey(PeriodoAcademico, models.DO_NOTHING, db_column='id_periodo')
-    numero_memorando = models.CharField(max_length=100, blank=True, null=True)
-    fecha_firma = models.DateField(blank=True, null=True)
-    fecha_inicio = models.DateField(blank=True, null=True)
-    fecha_fin = models.DateField(blank=True, null=True)
-    duracion_anios = models.IntegerField(blank=True, null=True)
-    estado = models.CharField(max_length=20)
-    estudiantes_asignados = models.IntegerField(blank=True, null=True)
-    observaciones = models.TextField(blank=True, null=True)
-    creado_en = models.DateTimeField()
-
-    class Meta:
-        managed = False
-        db_table = 'convenio'
-
-
 class InformeSemestral(models.Model):
     id_informe = models.AutoField(primary_key=True)
     id_proyecto = models.ForeignKey(Proyecto, models.DO_NOTHING, db_column='id_proyecto')

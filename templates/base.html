@@ -6,170 +6,435 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SGV — Sistema de Gestión de Vinculación{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/nexa" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        * { font-family: 'Nunito', sans-serif; }
+        * { font-family: 'Nexa', 'Segoe UI', sans-serif; }
         html, body { height: 100%; margin: 0; padding: 0; }
-        body {
-            background-color: #f4f5f4;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
+        body { background-color: #f2f2f2; display: flex; flex-direction: column; min-height: 100vh; }
 
-        /* TOPBAR */
+        /* ── TOPBAR ── */
         .topbar {
             background-color: #1b7505;
             height: 58px;
             display: flex;
             align-items: center;
-            padding: 0 1.5rem;
+            padding: 0 1.2rem;
             position: fixed;
             top: 0; left: 0; right: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(13,25,16,0.18);
+            z-index: 1050;
+            box-shadow: 0 2px 12px rgba(0,40,10,.22);
+            gap: .6rem;
         }
         .topbar-brand {
             display: flex;
             align-items: center;
-            gap: 0 ;
             text-decoration: none;
+            flex-shrink: 0;
+            gap: .4rem;
         }
         .topbar-sigla {
-            color: #ffffff;
-            font-size: 1.35rem;
-            font-weight: 800;
-            letter-spacing: 0.5px;
-            line-height: 1;
+            color: #fff;
+            font-size: 1.15rem;
+            font-weight: 900;
+            letter-spacing: .3px;
         }
         .topbar-divisor {
-            color: rgba(255,255,255,0.4);
-            font-size: 1.2rem;
-            margin: 0 0.75rem;
-            font-weight: 300;
+            color: rgba(255,255,255,.35);
+            font-size: .95rem;
+            margin: 0 .3rem;
         }
         .topbar-nombre {
-            color: rgba(255,255,255,0.9);
-            font-size: 0.88rem;
+            color: rgba(255,255,255,.85);
+            font-size: .78rem;
             font-weight: 600;
-            letter-spacing: 0.01em;
         }
-        .topbar-right {
-            margin-left: auto;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
+        .topbar-sep { flex: 1; }
+
+        /* Campana */
+        .topbar-bell {
+            position: relative;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.13);
+            border: 1.5px solid rgba(255,255,255,.22);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: #fff; font-size: 1rem;
+            transition: background .2s;
+            flex-shrink: 0;
         }
-        .periodo-badge {
-            background-color: rgba(255,255,255,0.15);
-            color: #ffffff;
-            font-size: 0.76rem;
-            font-weight: 600;
-            padding: 4px 12px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.3);
-            display: flex;
-            align-items: center;
-            gap: 5px;
+        .topbar-bell:hover { background: rgba(255,255,255,.22); }
+        .bell-badge {
+            position: absolute; top: -3px; right: -3px;
+            width: 16px; height: 16px;
+            background: #dba112; border-radius: 50%;
+            font-size: .58rem; font-weight: 900; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            border: 1.5px solid #1b7505;
         }
-        .usuario-badge {
-            color: #ffffff;
-            font-size: 0.82rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+
+        /* Período wrapper (relativo para dropdown) */
+        .periodo-wrapper {
+            position: relative;
+            flex-shrink: 0;
         }
-        .usuario-badge i { color: #dba112; font-size: 1.1rem; }
-        .btn-logout {
-            background-color: rgba(255,255,255,0.12);
-            color: #ffffff;
-            font-size: 0.76rem;
-            font-weight: 600;
-            border: 1px solid rgba(255,255,255,0.25);
-            border-radius: 6px;
-            padding: 5px 12px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: background-color 0.2s;
+        .topbar-periodo-btn {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,.13);
+            border: 1.5px solid rgba(255,255,255,.22);
+            border-radius: 8px;
+            color: #fff; font-size: .75rem; font-weight: 700;
+            padding: 5px 11px;
+            cursor: pointer;
+            transition: background .2s;
+            white-space: nowrap;
         }
-        .btn-logout:hover {
-            background-color: rgba(255,255,255,0.22);
-            color: #ffffff;
+        .topbar-periodo-btn:hover,
+        .topbar-periodo-btn.activo { background: rgba(255,255,255,.22); }
+        .topbar-periodo-btn .periodo-cal { color: #dba112; font-size: .95rem; }
+        .topbar-periodo-btn .periodo-text {
+            display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1;
         }
+        .topbar-periodo-btn .periodo-label {
+            font-size: .56rem; font-weight: 800; color: rgba(255,255,255,.6);
+            text-transform: uppercase; letter-spacing: .07em;
+        }
+        .topbar-periodo-btn .periodo-value { font-size: .78rem; font-weight: 800; color: #fff; }
+        .topbar-periodo-btn .chevron-small { font-size: .65rem; color: rgba(255,255,255,.5); }
+
+        /* ── DROPDOWN PERÍODO (cae debajo del botón) ── */
+        .periodo-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.18);
+            width: 340px;
+            max-height: 420px;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            z-index: 2000;
+            display: none;
+            animation: dropAnim .15s ease;
+        }
+        .periodo-dropdown.open { display: flex; }
+        @keyframes dropAnim {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .pd-header {
+            background: #1b7505;
+            padding: 12px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .pd-header-left {
+            display: flex; align-items: center; gap: 8px;
+            color: #fff; font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+        }
+        .pd-header-left i { color: #dba112; font-size: 1rem; }
+        .pd-close-btn {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: rgba(255,255,255,.2); border: none;
+            color: #fff; font-size: .75rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s;
+        }
+        .pd-close-btn:hover { background: rgba(255,255,255,.35); }
+        .pd-search {
+            padding: 10px 14px; border-bottom: 1px solid #f0f0f0;
+        }
+        .pd-search input {
+            width: 100%;
+            border: 1.5px solid #e0e0e0; border-radius: 8px;
+            padding: 7px 12px 7px 32px;
+            font-size: .8rem; font-family: 'Nexa','Segoe UI',sans-serif;
+            outline: none; color: #333;
+            background: #fafafa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16'%3E%3Cpath fill='%23999' d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E") no-repeat 10px center;
+            transition: border-color .2s;
+        }
+        .pd-search input:focus { border-color: #1b7505; background: #fff; }
+        .pd-section-lbl {
+            padding: 8px 16px 4px;
+            font-size: .6rem; font-weight: 900; color: #1b7505;
+            text-transform: uppercase; letter-spacing: .1em;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .pd-section-lbl::before {
+            content: ''; width: 7px; height: 7px; border-radius: 50%; background: #1b7505; flex-shrink: 0;
+        }
+        .pd-list { overflow-y: auto; flex: 1; }
+        .pd-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 16px;
+            cursor: pointer; transition: background .14s;
+            border-bottom: 1px solid #f8f8f8;
+        }
+        .pd-item:hover { background: #f0f7ec; }
+        .pd-item.activo { background: #f0f7ec; }
+        /* Ícono: check verde si activo, radio vacío si no */
+        .pd-check {
+            width: 20px; height: 20px; flex-shrink: 0;
+            border-radius: 50%; border: 2px solid #d0d0d0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .7rem; color: transparent;
+        }
+        .pd-item.activo .pd-check {
+            border-color: #1b7505; background: #1b7505; color: #fff;
+        }
+        .pd-item-nombre {
+            flex: 1; font-size: .82rem; font-weight: 600; color: #333;
+        }
+        .pd-item.activo .pd-item-nombre { color: #1b7505; font-weight: 800; }
+        .pd-footer {
+            padding: 9px 16px;
+            border-top: 1px solid #f0f0f0;
+            font-size: .7rem; color: #a8a8a7;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .pd-footer i { font-size: .75rem; }
+
+        /* Usuario btn */
+        .topbar-user-btn {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(255,255,255,.13);
+            border: 1.5px solid rgba(255,255,255,.22);
+            border-radius: 30px;
+            padding: 3px 10px 3px 3px;
+            cursor: pointer; transition: background .2s;
+            flex-shrink: 0;
+        }
+        .topbar-user-btn:hover { background: rgba(255,255,255,.22); }
+        .user-avatar-top {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: #dba112;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .7rem; font-weight: 900; color: #fff;
+            border: 2px solid rgba(255,255,255,.35); flex-shrink: 0;
+        }
+        .user-name-top {
+            color: #fff; font-size: .75rem; font-weight: 700;
+            max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .user-chevron { color: rgba(255,255,255,.55); font-size: .65rem; }
+
+        /* ── DROPDOWN USUARIO ── */
+        .usuario-dropdown-panel {
+            position: fixed; top: 62px; right: 1rem;
+            background: #fff; border-radius: 14px;
+            box-shadow: 0 12px 40px rgba(0,0,0,.16);
+            width: 280px; z-index: 2000; overflow: hidden;
+            display: none;
+        }
+        .usuario-dropdown-panel.open { display: block; animation: dropAnim .15s ease; }
+        .udp-header {
+            padding: 16px 16px 12px;
+            background: linear-gradient(135deg, #1b7505 0%, #2a9e08 100%);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .udp-avatar-big {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: #dba112;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; font-weight: 900; color: #fff;
+            border: 2.5px solid rgba(255,255,255,.4); flex-shrink: 0;
+        }
+        .udp-info { flex: 1; min-width: 0; }
+        .udp-nombre { color: #fff; font-size: .88rem; font-weight: 800; line-height: 1.2; }
+        .udp-email { color: rgba(255,255,255,.72); font-size: .67rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .udp-rol-badge {
+            display: inline-block; background: rgba(255,255,255,.2); color: rgba(255,255,255,.9);
+            font-size: .6rem; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+            margin-top: 4px; text-transform: uppercase; letter-spacing: .04em;
+            border: 1px solid rgba(255,255,255,.3);
+        }
+        .udp-section-label {
+            padding: 7px 14px 3px; font-size: .6rem; font-weight: 800;
+            color: #b0b0b0; text-transform: uppercase; letter-spacing: .08em; background: #fafafa;
+        }
+        .udp-item {
+            display: flex; align-items: center; gap: 9px;
+            padding: 9px 14px; font-size: .81rem; color: #2c2c2c;
+            text-decoration: none; transition: background .14s;
+        }
+        .udp-item:hover { background: #f5f9f3; color: #1b7505; }
+        .udp-item i { font-size: .9rem; color: #1b7505; width: 16px; text-align: center; }
+        .udp-item.danger { color: #dc3545; border-top: 1px solid #f0f0f0; }
+        .udp-item.danger i { color: #dc3545; }
+        .udp-item.danger:hover { background: #fff5f5; }
+        .udp-sep { height: 1px; background: #f0f0f0; }
 
         /* CONTENIDO */
         .main-content {
-            margin-top: 58px;
-            margin-bottom: 42px;
-            flex: 1;
-            padding: 1.5rem;
+            margin-top: 58px; margin-bottom: 46px;
+            flex: 1; padding: 1.5rem;
         }
 
         /* FOOTER */
         .footer-uteq {
             background-color: #1b7505;
-            color: rgba(255,255,255,0.75);
-            font-size: 0.74rem;
-            text-align: center;
+            color: rgba(255,255,255,.72);
+            font-size: .72rem; text-align: center;
             padding: 10px 1rem;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
+            position: fixed; bottom: 0; left: 0; right: 0;
+            z-index: 1000; letter-spacing: .01em;
         }
-        .footer-uteq a {
-            color: #dba112;
-            font-weight: 600;
-            text-decoration: none;
-        }
+        .footer-uteq a { color: #dba112; font-weight: 700; text-decoration: none; }
         .footer-uteq a:hover { text-decoration: underline; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-    <!-- TOPBAR -->
-    <nav class="topbar">
-        <a href="{% url 'dashboard' %}" class="topbar-brand">
-            <span class="topbar-sigla">SGV</span>
-            <span class="topbar-divisor">|</span>
-            <span class="topbar-nombre">Sistema de Gestión de Vinculación</span>
-        </a>
+<!-- ── TOPBAR ── -->
+<nav class="topbar">
+    <a href="{% url 'dashboard' %}" class="topbar-brand">
+        <span class="topbar-sigla">SGV</span>
+        <span class="topbar-divisor">|</span>
+        <span class="topbar-nombre d-none d-md-inline">Sistema de Gestión de Vinculación</span>
+    </a>
 
-        <div class="topbar-right">
-            {% if periodo_activo %}
-                <span class="periodo-badge">
-                    <i class="bi bi-calendar3"></i>
-                    {{ periodo_activo }}
-                </span>
-            {% endif %}
-            <span class="usuario-badge">
-                <i class="bi bi-person-circle"></i>
-                {{ request.session.usuario_nombre|default:"Usuario" }}
-            </span>
-            <a href="{% url 'logout' %}" class="btn-logout">
-                <i class="bi bi-box-arrow-right"></i> Salir
-            </a>
-        </div>
-    </nav>
+    <div class="topbar-sep"></div>
 
-    <!-- CONTENIDO PRINCIPAL -->
-    <div class="main-content">
-        {% block content %}{% endblock %}
+    <!-- Campana -->
+    {% if request.session.usuario_id %}
+    <div class="topbar-bell" title="Notificaciones">
+        <i class="bi bi-bell-fill"></i>
+        <div class="bell-badge">0</div>
     </div>
+    {% endif %}
 
-    <!-- FOOTER FIJO -->
-    <footer class="footer-uteq">
-        © {% now "Y" %} <a href="{% url 'dashboard' %}">Universidad Técnica Estatal de Quevedo</a>
-        &nbsp;—&nbsp; Sistema de Gestión de Vinculación con la Colectividad
-    </footer>
+    <!-- Período: wrapper con dropdown propio -->
+    {% if periodo_activo %}
+    <div class="periodo-wrapper" id="periodoWrapper">
+        <button class="topbar-periodo-btn" onclick="togglePeriodo(event)" id="btnPeriodo">
+            <i class="bi bi-calendar2-week-fill periodo-cal"></i>
+            <span class="periodo-text">
+                <span class="periodo-label">Período</span>
+                <span class="periodo-value">{{ periodo_activo.codigo|default:periodo_activo.nombre|truncatechars:22 }}</span>
+            </span>
+            <i class="bi bi-chevron-down chevron-small" id="periodoChevron"></i>
+        </button>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    {% block extra_js %}{% endblock %}
+        <!-- Dropdown justo debajo del botón -->
+        <div class="periodo-dropdown" id="periodoDropdown">
+            <div class="pd-header">
+                <div class="pd-header-left">
+                    <i class="bi bi-calendar2-week-fill"></i>
+                    Período Académico
+                </div>
+                <button class="pd-close-btn" onclick="cerrarPeriodo()"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="pd-search">
+                <input type="text" id="periodoSearch" placeholder="Buscar período..." oninput="filtrarPeriodos(this.value)">
+            </div>
+            <div class="pd-section-lbl">Períodos disponibles</div>
+            <div class="pd-list" id="periodoList">
+                {% for p in todos_periodos %}
+                <div class="pd-item {% if p.activo %}activo{% endif %}" data-nombre="{{ p.nombre|lower }} {{ p.codigo|default:''|lower }}">
+                    <div class="pd-check">{% if p.activo %}<i class="bi bi-check-lg"></i>{% endif %}</div>
+                    <span class="pd-item-nombre">{{ p.nombre }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="pd-footer">
+                <i class="bi bi-info-circle"></i>
+                Selecciona un período para cambiar
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Usuario -->
+    {% if request.session.usuario_id %}
+    <div class="topbar-user-btn" onclick="toggleUsuario(event)" id="btnUsuario">
+        <div class="user-avatar-top">{{ request.session.usuario_nombre|default:"U"|slice:":2"|upper }}</div>
+        <span class="user-name-top d-none d-sm-inline">{{ request.session.usuario_nombre|default:"Usuario"|truncatechars:14 }}</span>
+        <i class="bi bi-chevron-down user-chevron"></i>
+    </div>
+    {% endif %}
+</nav>
+
+<!-- ── DROPDOWN USUARIO ── -->
+{% if request.session.usuario_id %}
+<div class="usuario-dropdown-panel" id="usuarioDropdown">
+    <div class="udp-header">
+        <div class="udp-avatar-big">{{ request.session.usuario_nombre|default:"U"|slice:":2"|upper }}</div>
+        <div class="udp-info">
+            <div class="udp-nombre">{{ request.session.usuario_nombre|default:"Usuario" }}</div>
+            <div class="udp-email">{{ request.session.usuario_email|default:"" }}</div>
+            <div class="udp-rol-badge">{{ request.session.usuario_rol|default:"Usuario" }}</div>
+        </div>
+    </div>
+    <div class="udp-section-label">Perfiles disponibles</div>
+    <div class="udp-item" style="pointer-events:none">
+        <i class="bi bi-check-circle-fill" style="color:#1b7505"></i>
+        <span style="font-weight:800;color:#1b7505">{{ request.session.usuario_rol|default:"Coordinador" }}</span>
+    </div>
+    <div class="udp-sep"></div>
+    <a href="{% url 'dashboard' %}" class="udp-item"><i class="bi bi-grid-1x2-fill"></i>Dashboard</a>
+    <a href="#" class="udp-item"><i class="bi bi-person-circle"></i>Mi perfil</a>
+    <a href="#" class="udp-item"><i class="bi bi-shield-lock"></i>Cambiar clave</a>
+    <div class="udp-sep"></div>
+    <a href="{% url 'logout' %}" class="udp-item danger"><i class="bi bi-box-arrow-right"></i>Cerrar sesión</a>
+</div>
+{% endif %}
+
+<!-- CONTENIDO PRINCIPAL -->
+<div class="main-content">
+    {% block content %}{% endblock %}
+</div>
+
+<!-- FOOTER FIJO -->
+<footer class="footer-uteq">
+    © {% now "Y" %} <a href="{% url 'dashboard' %}">Universidad Técnica Estatal de Quevedo</a>
+    &nbsp;·&nbsp; Sistema de Gestión de Vinculación con la Colectividad
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* Período dropdown */
+function togglePeriodo(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('periodoDropdown');
+    const ud = document.getElementById('usuarioDropdown');
+    if (ud) ud.classList.remove('open');
+    const isOpen = dd.classList.toggle('open');
+    document.getElementById('periodoChevron').style.transform = isOpen ? 'rotate(180deg)' : '';
+    if (isOpen) setTimeout(() => document.getElementById('periodoSearch')?.focus(), 100);
+}
+function cerrarPeriodo() {
+    document.getElementById('periodoDropdown').classList.remove('open');
+    document.getElementById('periodoChevron').style.transform = '';
+}
+function filtrarPeriodos(q) {
+    q = q.toLowerCase().trim();
+    document.querySelectorAll('.pd-item').forEach(item => {
+        item.style.display = (!q || (item.dataset.nombre || '').includes(q)) ? '' : 'none';
+    });
+}
+
+/* Usuario dropdown */
+function toggleUsuario(e) {
+    e.stopPropagation();
+    cerrarPeriodo();
+    document.getElementById('usuarioDropdown').classList.toggle('open');
+}
+
+/* Cerrar al click fuera */
+document.addEventListener('click', e => {
+    const pd = document.getElementById('periodoDropdown');
+    const pw = document.getElementById('periodoWrapper');
+    if (pd && pw && !pw.contains(e.target)) cerrarPeriodo();
+    const ud = document.getElementById('usuarioDropdown');
+    const ub = document.getElementById('btnUsuario');
+    if (ud && ub && !ud.contains(e.target) && !ub.contains(e.target)) ud.classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { cerrarPeriodo(); document.getElementById('usuarioDropdown')?.classList.remove('open'); }
+});
+</script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

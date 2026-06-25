@@ -49,4 +49,10 @@ urlpatterns = [
     # Anexos de convenio
     path('convenios/<int:id_convenio>/anexos/subir/', views.anexo_subir, name='anexo_subir'),
     path('convenios/anexos/<int:id_anexo>/eliminar/', views.anexo_eliminar, name='anexo_eliminar'),
+    # Detalle de proyecto
+    path('proyectos/<int:id>/detalle/', views.proyecto_detalle, name='proyecto_detalle'),
+    path('api/proyectos/<int:id>/detalle/', views.api_proyecto_detalle, name='api_proyecto_detalle'),
+    path('api/proyectos/<int:id>/editar-rapido/', views.api_proyecto_editar_rapido, name='api_proyecto_editar_rapido'),
+    # Reportes
+    path('reportes/', views.reportes_view, name='reportes'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

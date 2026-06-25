@@ -5,252 +5,478 @@
 
 {% block extra_css %}
 <style>
-    .dashboard-layout {
-        display: flex;
-        gap: 1.2rem;
-        align-items: flex-start;
-    }
-    .panel-izq {
-        width: 210px;
-        min-width: 210px;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-    .img-card {
-        background: #fff;
-        border-radius: 12px;
-        border: 1px solid #e0e0e0;
-        overflow: hidden;
-        aspect-ratio: 4/3;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: border-color 0.2s;
-    }
-    .img-card:hover { border-color: #1b7505; }
-    .img-card-placeholder {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        padding: 1rem;
-    }
-    .img-card-placeholder i {
-        font-size: 2rem;
-        color: #a8a8a7;
-    }
-    .img-card-placeholder span {
-        font-size: 0.75rem;
-        color: #a8a8a7;
-        text-align: center;
-    }
-    .panel-modulos { flex: 1; }
-    .dashboard-header { margin-bottom: 1.2rem; }
-    .dashboard-header h4 {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #0d1910;
-        margin: 0;
-    }
-    .dashboard-header p {
-        font-size: 0.82rem;
-        color: #6c757d;
-        margin: 2px 0 0 0;
-    }
-    .linea-dorada {
-        width: 36px;
-        height: 3px;
-        background-color: #dba112;
-        border-radius: 2px;
-        margin: 6px 0 0 0;
-    }
-    .modulo-card {
-        background: #ffffff;
-        border: 1px solid #e8e8e8;
-        border-radius: 12px;
-        padding: 1.2rem 0.8rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        text-decoration: none;
-        color: #0d1910;
-        transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
-        height: 100%;
-    }
-    .modulo-card:hover {
-        border-color: #1b7505;
-        box-shadow: 0 4px 16px rgba(27,117,5,0.10);
-        transform: translateY(-2px);
-        color: #0d1910;
-    }
-    .modulo-card.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
-    .modulo-icono {
-        width: 52px;
-        height: 52px;
-        border-radius: 12px;
-        background-color: #f0f5ee;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 0.8rem;
-    }
-    .modulo-icono i {
-        font-size: 1.6rem;
-        color: #1b7505;
-    }
-    .modulo-nombre {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #0d1910;
-        margin-bottom: 0.3rem;
-    }
-    .modulo-desc {
-        font-size: 0.72rem;
-        color: #6c757d;
-        line-height: 1.4;
-    }
-    .modulo-badge {
-        font-size: 0.65rem;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 20px;
-        margin-top: 6px;
-        background: #f4f4f4;
-        color: #a8a8a7;
-    }
+/* ── LAYOUT PRINCIPAL ── */
+.dashboard-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+/* Columna izquierda: banners informativos */
+.dashboard-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+@media (max-width: 900px) { .dashboard-sidebar { display: none; } }
+
+.info-banner {
+    background: #fff;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+}
+.info-banner img {
+    width: 100%;
+    display: block;
+    object-fit: cover;
+}
+/* Placeholder cuando no hay imagen */
+.info-banner-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 14px;
+    text-align: center;
+    background: linear-gradient(135deg, #f0f7ec 0%, #fff 100%);
+}
+.info-banner-placeholder .ibp-icon {
+    font-size: 2.2rem;
+    color: #c3e6b0;
+    margin-bottom: 8px;
+}
+.info-banner-placeholder .ibp-text {
+    font-size: .72rem;
+    color: #b0b0b0;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* Columna derecha: módulos */
+.dashboard-main { flex: 1; min-width: 0; }
+
+/* ── MÓDULOS LABEL ── */
+.section-label {
+    font-size: .68rem;
+    font-weight: 800;
+    color: #9e9e9e;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 12px;
+    padding-left: 2px;
+}
+
+/* ── GRID DE MÓDULOS ── */
+.modulos-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+}
+@media (max-width: 1400px) { .modulos-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (max-width: 1100px) { .modulos-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 850px)  { .modulos-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px)  { .modulos-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── TARJETA MÓDULO ── */
+.mod-card {
+    background: #fff;
+    border: 1.5px solid #c8e6bc;
+    border-radius: 14px;
+    padding: 18px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    text-decoration: none;
+    position: relative;
+    transition: border-color .2s, box-shadow .2s, transform .18s;
+    cursor: pointer;
+    min-height: 155px;
+    justify-content: center;
+}
+.mod-card:hover {
+    border-color: #1b7505;
+    box-shadow: 0 6px 24px rgba(27,117,5,.14);
+    transform: translateY(-3px);
+    text-decoration: none;
+}
+.mod-card.disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.mod-star {
+    position: absolute;
+    top: 8px;
+    left: 9px;
+    color: #e8d98a;
+    font-size: .65rem;
+    transition: color .2s;
+}
+.mod-card:hover .mod-star { color: #dba112; }
+
+.mod-icon {
+    width: 78px;
+    height: 78px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.mod-icon svg { width: 78px; height: 78px; }
+
+.mod-name {
+    font-size: .83rem;
+    font-weight: 800;
+    color: #1a1a1a;
+    line-height: 1.25;
+    margin-bottom: 3px;
+}
+.mod-card:hover .mod-name { color: #1b7505; }
+
+.mod-desc {
+    font-size: .7rem;
+    color: #b0b0b0;
+    font-weight: 500;
+    line-height: 1.3;
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-layout">
 
-    <!-- PANEL IZQUIERDO -->
-    <div class="panel-izq">
-        <div class="img-card">
-            <div class="img-card-placeholder">
-                <i class="bi bi-image"></i>
-                <span>Imagen informativa 1</span>
-            </div>
-        </div>
-        <div class="img-card">
-            <div class="img-card-placeholder">
-                <i class="bi bi-image"></i>
-                <span>Imagen informativa 2</span>
-            </div>
-        </div>
-        <div class="img-card">
-            <div class="img-card-placeholder">
-                <i class="bi bi-image"></i>
-                <span>Imagen informativa 3</span>
-            </div>
+<!-- ── COLUMNA IZQUIERDA: BANNERS INFORMATIVOS ── -->
+<div class="dashboard-sidebar">
+    <!-- Banner 1: puedes reemplazar con <img src="..."> cuando tengas imágenes -->
+    <div class="info-banner">
+        <div class="info-banner-placeholder">
+            <div class="ibp-icon"><i class="bi bi-image"></i></div>
+            <div class="ibp-text">Espacio para imagen informativa</div>
         </div>
     </div>
-
-    <!-- PANEL MÓDULOS -->
-    <div class="panel-modulos">
-        <div class="dashboard-header">
-            <h4>Panel de Control</h4>
-            <p>Seleccione un módulo para continuar</p>
-            <div class="linea-dorada"></div>
+    <!-- Banner 2 -->
+    <div class="info-banner">
+        <div class="info-banner-placeholder">
+            <div class="ibp-icon"><i class="bi bi-megaphone"></i></div>
+            <div class="ibp-text">Noticias y anuncios</div>
         </div>
+    </div>
+</div>
 
-        <div class="row g-3">
+<!-- ── COLUMNA DERECHA: MÓDULOS ── -->
+<div class="dashboard-main">
+<div class="section-label">Módulos del sistema</div>
 
-            <!-- Mapa -->
-            <div class="col-6 col-md-4 col-xl-3">
-    <a href="{% url 'mapa' %}" class="modulo-card">
-        <div class="modulo-icono"><i class="bi bi-map"></i></div>
-        <div class="modulo-nombre">Mapa de proyectos</div>
-        <div class="modulo-desc">Visualización geográfica de intervenciones</div>
+<div class="modulos-grid">
+
+    <!-- MAPA -->
+    <a href="{% url 'mapa' %}" class="mod-card">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="63" rx="18" ry="4" fill="#d4edda" opacity=".6"/>
+                <path d="M10 27 L27 22 L49 30 L66 22 L66 54 L49 60 L27 52 L10 60 Z" fill="#e8f5e0" stroke="#c3e6b0" stroke-width="1.2"/>
+                <path d="M27 22 L27 52" stroke="#a5d6a7" stroke-width="1" stroke-dasharray="2,2"/>
+                <path d="M49 30 L49 60" stroke="#a5d6a7" stroke-width="1" stroke-dasharray="2,2"/>
+                <path d="M10 38 L66 38" stroke="#a5d6a7" stroke-width="1" stroke-dasharray="2,2"/>
+                <!-- Pin -->
+                <path d="M42 16 C37 16 33 20 33 25.5 C33 32 42 42 42 42 C42 42 51 32 51 25.5 C51 20 47 16 42 16 Z" fill="#1b7505"/>
+                <circle cx="42" cy="25" r="4" fill="#fff"/>
+                <circle cx="42" cy="25" r="2" fill="#1b7505"/>
+                <ellipse cx="42" cy="44" rx="5" ry="2" fill="rgba(27,117,5,.2)"/>
+                <!-- Puntos decorativos -->
+                <circle cx="20" cy="32" r="2.5" fill="#dba112"/>
+                <circle cx="56" cy="48" r="2" fill="#dba112" opacity=".6"/>
+                <circle cx="32" cy="50" r="1.5" fill="#1b7505" opacity=".5"/>
+            </svg>
+        </div>
+        <div class="mod-name">Mapa</div>
+        <div class="mod-desc">Proyectos georreferenciados</div>
     </a>
-</div>
 
-            <!-- Proyectos -->
-            <div class="col-6 col-md-4 col-xl-3">
-              <a href="{% url 'proyectos_lista' %}" class="modulo-card">
-    <div class="modulo-icono"><i class="bi bi-folder2-open"></i></div>
-    <div class="modulo-nombre">Proyectos</div>
-    <div class="modulo-desc">Registro y seguimiento de proyectos</div>
-</a>
-            </div>
-
-            <!-- Entidades cooperantes -->
-            <div class="col-6 col-md-4 col-xl-3">
-            <a href="{% url 'entidades_lista' %}" class="modulo-card">
-                    <div class="modulo-icono"><i class="bi bi-building"></i></div>
-                    <div class="modulo-nombre">Entidades cooperantes</div>
-                    <div class="modulo-desc">GADs, hospitales, escuelas y más</div>
-         
-                </a>
-            </div>
-
-            <!-- Convenios -->
-            <div class="col-6 col-md-4 col-xl-3">
-                <a href="#" class="modulo-card disabled">
-                    <div class="modulo-icono"><i class="bi bi-file-earmark-text"></i></div>
-                    <div class="modulo-nombre">Convenios</div>
-                    <div class="modulo-desc">Acuerdos con entidades cooperantes</div>
-                    <span class="modulo-badge">Próximamente</span>
-                </a>
-            </div>
-
-            <!-- Periodos académicos — ACTIVO -->
-            <div class="col-6 col-md-4 col-xl-3">
-                <a href="{% url 'periodos_lista' %}" class="modulo-card">
-                    <div class="modulo-icono"><i class="bi bi-calendar2-check"></i></div>
-                    <div class="modulo-nombre">Periodos académicos</div>
-                    <div class="modulo-desc">SPA y PPA por ciclo lectivo</div>
-                </a>
-            </div>
-
-            <!-- Facultades y carreras — ACTIVO -->
-            <div class="col-6 col-md-4 col-xl-3">
-                <a href="{% url 'facultades_lista' %}" class="modulo-card">
-                    <div class="modulo-icono"><i class="bi bi-mortarboard"></i></div>
-                    <div class="modulo-nombre">Facultades y carreras</div>
-                    <div class="modulo-desc">Estructura académica UTEQ</div>
-                </a>
-            </div>
-
-            <!-- Docentes -->
-            <div class="col-6 col-md-4 col-xl-3">
-                <a href="#" class="modulo-card disabled">
-                    <div class="modulo-icono"><i class="bi bi-person-badge"></i></div>
-                    <div class="modulo-nombre">Docentes</div>
-                    <div class="modulo-desc">Registro de docentes responsables</div>
-                    <span class="modulo-badge">Próximamente</span>
-                </a>
-            </div>
-
-            <!-- Reportes -->
-            <div class="col-6 col-md-4 col-xl-3">
-                <a href="#" class="modulo-card disabled">
-                    <div class="modulo-icono"><i class="bi bi-bar-chart-line"></i></div>
-                    <div class="modulo-nombre">Reportes</div>
-                    <div class="modulo-desc">Estadísticas y KPIs del departamento</div>
-                    <span class="modulo-badge">Próximamente</span>
-                </a>
-            </div>
-
-            <!-- Usuarios -->
-            <div class="col-6 col-md-4 col-xl-3">
-                <a href="#" class="modulo-card disabled">
-                    <div class="modulo-icono"><i class="bi bi-people"></i></div>
-                    <div class="modulo-nombre">Usuarios</div>
-                    <div class="modulo-desc">Gestión de cuentas y accesos</div>
-                    <span class="modulo-badge">Próximamente</span>
-                </a>
-            </div>
-
+    <!-- PROYECTOS -->
+    <a href="{% url 'proyectos_lista' %}" class="mod-card">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Sombra -->
+                <ellipse cx="38" cy="70" rx="22" ry="4" fill="#d4edda" opacity=".5"/>
+                <!-- Carpeta fondo -->
+                <rect x="6" y="32" width="52" height="34" rx="5" fill="#c3e6b0"/>
+                <path d="M6 40 L6 62 Q6 66 11 66 L53 66 Q58 66 58 62 L58 40 Z" fill="#e8f5e0"/>
+                <!-- Tab de carpeta -->
+                <path d="M6 32 L6 40 L58 40 L58 32 Q58 27 53 27 L34 27 L30 32 Z" fill="#1b7505"/>
+                <!-- Carpeta delantera (superpuesta) -->
+                <rect x="18" y="28" width="52" height="34" rx="5" fill="#2db80a" opacity=".15"/>
+                <rect x="18" y="28" width="52" height="34" rx="5" stroke="#c3e6b0" stroke-width="1.5" fill="none"/>
+                <path d="M18 34 L70 34" stroke="#c3e6b0" stroke-width="1"/>
+                <!-- Documentos en carpeta -->
+                <rect x="22" y="42" width="18" height="14" rx="2" fill="#fff" stroke="#c3e6b0" stroke-width="1"/>
+                <rect x="25" y="46" width="12" height="1.5" rx=".75" fill="#c3e6b0"/>
+                <rect x="25" y="49" width="8" height="1.5" rx=".75" fill="#c3e6b0"/>
+                <rect x="25" y="52" width="10" height="1.5" rx=".75" fill="#c3e6b0"/>
+                <rect x="42" y="38" width="18" height="14" rx="2" fill="#fff" stroke="#dba112" stroke-width="1.2"/>
+                <rect x="45" y="42" width="12" height="1.5" rx=".75" fill="#ffe4a0"/>
+                <rect x="45" y="46" width="8" height="1.5" rx=".75" fill="#ffe4a0"/>
+                <rect x="45" y="50" width="10" height="1.5" rx=".75" fill="#ffe4a0"/>
+                <!-- Estrella -->
+                <path d="M38 30 L39.2 33.2 L42.8 33.2 L40 35.4 L41 38.5 L38 36.5 L35 38.5 L36 35.4 L33.2 33.2 L36.8 33.2 Z" fill="#dba112"/>
+            </svg>
         </div>
+        <div class="mod-name">Proyectos</div>
+        <div class="mod-desc">Gestión de proyectos</div>
+    </a>
+
+    <!-- ENTIDADES -->
+    <a href="{% url 'entidades_lista' %}" class="mod-card">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="70" rx="22" ry="3.5" fill="#d4edda" opacity=".5"/>
+                <!-- Cuerpo edificio -->
+                <rect x="12" y="28" width="52" height="38" rx="4" fill="#e8f5e0" stroke="#c3e6b0" stroke-width="1.2"/>
+                <!-- Techo -->
+                <polygon points="38,10 10,28 66,28" fill="#1b7505"/>
+                <rect x="12" y="26" width="52" height="5" rx="0" fill="#2db80a" opacity=".4"/>
+                <!-- Columnas -->
+                <rect x="18" y="32" width="6" height="34" rx="3" fill="#c3e6b0"/>
+                <rect x="35" y="32" width="6" height="34" rx="3" fill="#c3e6b0"/>
+                <rect x="52" y="32" width="6" height="34" rx="3" fill="#c3e6b0"/>
+                <!-- Puerta central -->
+                <rect x="30" y="50" width="16" height="16" rx="4" fill="#1b7505"/>
+                <circle cx="43" cy="58" r="1.8" fill="#dba112"/>
+                <!-- Ventanas -->
+                <rect x="16" y="36" width="10" height="8" rx="2" fill="#fff" opacity=".8"/>
+                <line x1="21" y1="36" x2="21" y2="44" stroke="#c3e6b0" stroke-width="1"/>
+                <line x1="16" y1="40" x2="26" y2="40" stroke="#c3e6b0" stroke-width="1"/>
+                <rect x="50" y="36" width="10" height="8" rx="2" fill="#fff" opacity=".8"/>
+                <line x1="55" y1="36" x2="55" y2="44" stroke="#c3e6b0" stroke-width="1"/>
+                <line x1="50" y1="40" x2="60" y2="40" stroke="#c3e6b0" stroke-width="1"/>
+                <!-- Bandera -->
+                <line x1="38" y1="4" x2="38" y2="12" stroke="#1b7505" stroke-width="1.5"/>
+                <path d="M38 4 L47 6.5 L38 9 Z" fill="#dba112"/>
+            </svg>
+        </div>
+        <div class="mod-name">Entidades</div>
+        <div class="mod-desc">Organizaciones aliadas</div>
+    </a>
+
+    <!-- CONVENIOS -->
+    <a href="{% url 'convenios_lista' %}" class="mod-card">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="70" rx="18" ry="3.5" fill="#d4edda" opacity=".5"/>
+                <!-- Documento base -->
+                <rect x="13" y="8" width="50" height="62" rx="6" fill="#fff" stroke="#c3e6b0" stroke-width="1.5"/>
+                <!-- Header verde -->
+                <rect x="13" y="8" width="50" height="18" rx="6" fill="#1b7505"/>
+                <rect x="13" y="19" width="50" height="7" fill="#1b7505"/>
+                <!-- Insignia header -->
+                <circle cx="38" cy="17" r="6" fill="rgba(255,255,255,.2)" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
+                <text x="38" y="20.5" text-anchor="middle" font-size="5" fill="#fff" font-weight="900" font-family="Nunito,sans-serif">SGV</text>
+                <!-- Líneas contenido -->
+                <rect x="19" y="32" width="38" height="2.5" rx="1.25" fill="#e0e0e0"/>
+                <rect x="19" y="38" width="30" height="2" rx="1" fill="#e8e8e8"/>
+                <rect x="19" y="43" width="34" height="2" rx="1" fill="#e8e8e8"/>
+                <rect x="19" y="48" width="26" height="2" rx="1" fill="#e8e8e8"/>
+                <!-- Líneas de firma -->
+                <line x1="17" y1="62" x2="34" y2="62" stroke="#1b7505" stroke-width="2" stroke-linecap="round"/>
+                <line x1="42" y1="62" x2="59" y2="62" stroke="#dba112" stroke-width="2" stroke-linecap="round"/>
+                <text x="25.5" y="67" text-anchor="middle" font-size="5.5" fill="#1b7505" font-weight="700" font-family="Nunito,sans-serif">UTEQ</text>
+                <text x="50.5" y="67" text-anchor="middle" font-size="5.5" fill="#dba112" font-weight="700" font-family="Nunito,sans-serif">Entidad</text>
+                <!-- Sello de OK -->
+                <circle cx="57" cy="40" r="10" fill="rgba(27,117,5,.08)" stroke="#1b7505" stroke-width="1.5" stroke-dasharray="3,2"/>
+                <path d="M52 40 L56 44 L63 35" stroke="#1b7505" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+        </div>
+        <div class="mod-name">Convenios</div>
+        <div class="mod-desc">Acuerdos institucionales</div>
+    </a>
+
+    <!-- PERIODOS -->
+    <a href="{% url 'periodos_lista' %}" class="mod-card">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="70" rx="20" ry="3.5" fill="#d4edda" opacity=".5"/>
+                <!-- Calendario cuerpo -->
+                <rect x="8" y="18" width="60" height="52" rx="8" fill="#fff" stroke="#c3e6b0" stroke-width="1.5"/>
+                <!-- Cabecera -->
+                <rect x="8" y="18" width="60" height="22" rx="8" fill="#1b7505"/>
+                <rect x="8" y="32" width="60" height="8" fill="#1b7505"/>
+                <!-- Argollas -->
+                <rect x="22" y="11" width="7" height="16" rx="3.5" fill="#dba112"/>
+                <rect x="47" y="11" width="7" height="16" rx="3.5" fill="#dba112"/>
+                <!-- Mes en header -->
+                <text x="38" y="30" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">JUNIO</text>
+                <!-- Días semana -->
+                <text x="19" y="48" text-anchor="middle" font-size="6" fill="#b0b0b0" font-family="Nunito,sans-serif">L</text>
+                <text x="29" y="48" text-anchor="middle" font-size="6" fill="#b0b0b0" font-family="Nunito,sans-serif">M</text>
+                <text x="39" y="48" text-anchor="middle" font-size="6" fill="#b0b0b0" font-family="Nunito,sans-serif">X</text>
+                <text x="49" y="48" text-anchor="middle" font-size="6" fill="#b0b0b0" font-family="Nunito,sans-serif">J</text>
+                <text x="59" y="48" text-anchor="middle" font-size="6" fill="#b0b0b0" font-family="Nunito,sans-serif">V</text>
+                <!-- Fila días -->
+                <text x="19" y="59" text-anchor="middle" font-size="7.5" fill="#333" font-family="Nunito,sans-serif">2</text>
+                <text x="29" y="59" text-anchor="middle" font-size="7.5" fill="#333" font-family="Nunito,sans-serif">3</text>
+                <!-- Día resaltado -->
+                <circle cx="39" cy="57" r="7" fill="#1b7505"/>
+                <text x="39" y="60.5" text-anchor="middle" font-size="7.5" fill="#fff" font-weight="900" font-family="Nunito,sans-serif">4</text>
+                <text x="49" y="59" text-anchor="middle" font-size="7.5" fill="#333" font-family="Nunito,sans-serif">5</text>
+                <text x="59" y="59" text-anchor="middle" font-size="7.5" fill="#333" font-family="Nunito,sans-serif">6</text>
+                <!-- Fila 2 -->
+                <text x="19" y="70" text-anchor="middle" font-size="7.5" fill="#333" font-family="Nunito,sans-serif">9</text>
+                <text x="29" y="70" text-anchor="middle" font-size="7.5" fill="#333" font-family="Nunito,sans-serif">10</text>
+                <text x="49" y="70" text-anchor="middle" font-size="7.5" fill="#dba112" font-weight="700" font-family="Nunito,sans-serif">12</text>
+            </svg>
+        </div>
+        <div class="mod-name">Períodos</div>
+        <div class="mod-desc">Períodos académicos</div>
+    </a>
+
+    <!-- FACULTADES -->
+    <a href="{% url 'facultades_lista' %}" class="mod-card">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="70" rx="20" ry="3.5" fill="#d4edda" opacity=".5"/>
+                <!-- Birrete tablero -->
+                <ellipse cx="38" cy="40" rx="28" ry="8" fill="#c3e6b0"/>
+                <polygon points="38,18 10,38 66,38" fill="#1b7505"/>
+                <ellipse cx="38" cy="38" rx="28" ry="5" fill="#2db80a" opacity=".3"/>
+                <!-- Tapa cuadrada del birrete -->
+                <rect x="26" y="13" width="24" height="10" rx="2" fill="#1b7505"/>
+                <rect x="28" y="15" width="20" height="6" rx="1" fill="#2db80a" opacity=".5"/>
+                <!-- Cuerda del birrete -->
+                <line x1="66" y1="38" x2="66" y2="55" stroke="#dba112" stroke-width="2.5"/>
+                <circle cx="66" cy="57" r="4" fill="#dba112"/>
+                <!-- Libros -->
+                <rect x="14" y="50" width="11" height="20" rx="2.5" fill="#dba112"/>
+                <rect x="17" y="53" width="5" height="2" rx="1" fill="#fff" opacity=".4"/>
+                <rect x="27" y="46" width="11" height="24" rx="2.5" fill="#e8f5e0" stroke="#c3e6b0" stroke-width="1"/>
+                <rect x="30" y="50" width="5" height="2" rx="1" fill="#c3e6b0"/>
+                <rect x="30" y="55" width="5" height="1.5" rx=".75" fill="#c3e6b0"/>
+                <rect x="40" y="48" width="11" height="22" rx="2.5" fill="#1b7505"/>
+                <rect x="43" y="52" width="5" height="2" rx="1" fill="#fff" opacity=".35"/>
+                <rect x="53" y="52" width="11" height="18" rx="2.5" fill="#dba112" opacity=".65"/>
+            </svg>
+        </div>
+        <div class="mod-name">Facultades</div>
+        <div class="mod-desc">Unidades académicas</div>
+    </a>
+
+    <!-- REPORTES -->
+    <a href="{% url 'reportes' %}" class="mod-card">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="70" rx="22" ry="3.5" fill="#d4edda" opacity=".5"/>
+                <!-- Monitor -->
+                <rect x="6" y="12" width="64" height="46" rx="7" fill="#1b7505"/>
+                <rect x="9" y="15" width="58" height="40" rx="5" fill="#f0f7ec"/>
+                <!-- Panel izq: barras -->
+                <rect x="12" y="19" width="26" height="20" rx="3" fill="#fff" stroke="#c3e6b0" stroke-width="1"/>
+                <rect x="15" y="33" width="5" height="5" rx="1" fill="#1b7505"/>
+                <rect x="22" y="29" width="5" height="9" rx="1" fill="#dba112"/>
+                <rect x="29" y="25" width="5" height="13" rx="1" fill="#2db80a" opacity=".7"/>
+                <!-- Panel der: donut -->
+                <rect x="40" y="19" width="26" height="20" rx="3" fill="#fff" stroke="#c3e6b0" stroke-width="1"/>
+                <circle cx="53" cy="29" r="7" fill="none" stroke="#e0e0e0" stroke-width="5"/>
+                <circle cx="53" cy="29" r="7" fill="none" stroke="#1b7505" stroke-width="5"
+                    stroke-dasharray="22 22" stroke-dashoffset="5"/>
+                <circle cx="53" cy="29" r="7" fill="none" stroke="#dba112" stroke-width="5"
+                    stroke-dasharray="10 34" stroke-dashoffset="-17"/>
+                <!-- Tabla inferior -->
+                <rect x="12" y="41" width="54" height="12" rx="3" fill="#fff" stroke="#c3e6b0" stroke-width="1"/>
+                <line x1="12" y1="45" x2="66" y2="45" stroke="#f0f0f0" stroke-width="1"/>
+                <line x1="12" y1="49" x2="66" y2="49" stroke="#f0f0f0" stroke-width="1"/>
+                <rect x="14" y="42" width="16" height="2.5" rx="1" fill="#c3e6b0"/>
+                <rect x="14" y="46" width="12" height="2" rx="1" fill="#e0e0e0"/>
+                <rect x="14" y="50" width="14" height="2" rx="1" fill="#e0e0e0"/>
+                <!-- Línea tendencia -->
+                <polyline points="40,38 47,33 53,36 60,27" stroke="#dba112" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <circle cx="60" cy="27" r="2.5" fill="#dba112"/>
+                <!-- Soporte -->
+                <rect x="33" y="58" width="10" height="6" rx="2" fill="#1b7505"/>
+                <rect x="24" y="63" width="28" height="5" rx="3" fill="#c3e6b0"/>
+            </svg>
+        </div>
+        <div class="mod-name">Reportes</div>
+        <div class="mod-desc">Estadísticas y gráficas</div>
+    </a>
+
+    <!-- DOCENTES (próximamente) -->
+    <div class="mod-card disabled">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="70" rx="20" ry="3.5" fill="#d4edda" opacity=".5"/>
+                <!-- Persona -->
+                <circle cx="38" cy="22" r="13" fill="#e8f5e0" stroke="#c3e6b0" stroke-width="1.5"/>
+                <circle cx="38" cy="21" r="8" fill="#fff"/>
+                <!-- Cara -->
+                <circle cx="34.5" cy="20" r="1.5" fill="#1b7505"/>
+                <circle cx="41.5" cy="20" r="1.5" fill="#1b7505"/>
+                <path d="M34.5 25 Q38 28 41.5 25" stroke="#1b7505" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+                <!-- Cuerpo -->
+                <path d="M14 66 C14 54 24 46 38 46 C52 46 62 54 62 66" fill="#e8f5e0" stroke="#c3e6b0" stroke-width="1.2"/>
+                <!-- Corbata -->
+                <path d="M36 46 L38 58 L40 46" fill="#1b7505"/>
+                <!-- Badge docente -->
+                <rect x="46" y="40" width="20" height="14" rx="5" fill="#dba112"/>
+                <text x="56" y="50" text-anchor="middle" font-size="6" font-weight="800" fill="#fff" font-family="Nunito,sans-serif">DOC</text>
+                <!-- Candado (próximamente) -->
+                <circle cx="60" cy="14" r="9" fill="#f5f5f5" stroke="#e0e0e0" stroke-width="1.5"/>
+                <rect x="55" y="14" width="10" height="8" rx="2" fill="#bdbdbd"/>
+                <path d="M57 14 Q57 10 60 10 Q63 10 63 14" fill="none" stroke="#bdbdbd" stroke-width="2"/>
+                <circle cx="60" cy="17" r="1.5" fill="#fff"/>
+            </svg>
+        </div>
+        <div class="mod-name">Docentes</div>
+        <div class="mod-desc">Próximamente</div>
     </div>
 
-</div>
+    <!-- USUARIOS -->
+    <a href="#" class="mod-card disabled">
+        <i class="bi bi-star-fill mod-star"></i>
+        <div class="mod-icon">
+            <svg viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="38" cy="70" rx="22" ry="3.5" fill="#d4edda" opacity=".5"/>
+                <!-- Usuario izq (fondo) -->
+                <circle cx="20" cy="30" r="9" fill="#c3e6b0" stroke="#a5d6a7" stroke-width="1"/>
+                <circle cx="20" cy="29" r="5.5" fill="#e8f5e0"/>
+                <path d="M4 62 C4 52 10 46 20 46 C30 46 36 52 36 62" fill="#e8f5e0" stroke="#c3e6b0" stroke-width="1"/>
+                <!-- Usuario der (fondo) -->
+                <circle cx="56" cy="30" r="9" fill="#c3e6b0" stroke="#a5d6a7" stroke-width="1"/>
+                <circle cx="56" cy="29" r="5.5" fill="#e8f5e0"/>
+                <path d="M40 62 C40 52 46 46 56 46 C66 46 72 52 72 62" fill="#e8f5e0" stroke="#c3e6b0" stroke-width="1"/>
+                <!-- Usuario central (protagonista) -->
+                <circle cx="38" cy="24" r="11" fill="#1b7505"/>
+                <circle cx="38" cy="23" r="7" fill="#e8f5e0"/>
+                <circle cx="35" cy="22" r="1.5" fill="#1b7505"/>
+                <circle cx="41" cy="22" r="1.5" fill="#1b7505"/>
+                <path d="M35 27 Q38 30 41 27" stroke="#1b7505" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+                <path d="M18 68 C18 56 26 48 38 48 C50 48 58 56 58 68" fill="#1b7505"/>
+                <!-- Escudo admin -->
+                <circle cx="56" cy="14" r="9" fill="#dba112"/>
+                <path d="M56 8 C56 8 62 10 62 16 C62 20 59 23 56 24 C53 23 50 20 50 16 C50 10 56 8 56 8 Z" fill="rgba(255,255,255,.2)"/>
+                <path d="M52 15.5 L55.2 18.5 L61 12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+        </div>
+        <div class="mod-name">Usuarios</div>
+        <div class="mod-desc">Gestión de accesos</div>
+    </a>
+
+</div><!-- fin modulos-grid -->
+</div><!-- fin dashboard-main -->
+</div><!-- fin dashboard-layout -->
+
 {% endblock %}
