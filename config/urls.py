@@ -55,4 +55,6 @@ urlpatterns = [
     path('api/proyectos/<int:id>/editar-rapido/', views.api_proyecto_editar_rapido, name='api_proyecto_editar_rapido'),
     # Reportes
     path('reportes/', views.reportes_view, name='reportes'),
+    # Capa pobreza NBI
+    path('api/capa-pobreza/', views.api_capa_pobreza, name='api_capa_pobreza'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
