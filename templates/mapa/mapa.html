@@ -170,9 +170,19 @@
                 <span>Capa Temática ODS</span>
             </label>
             <label class="capa-switch">
-                <input type="checkbox" id="capa-inec" onchange="toggleCapaFicticia('inec')">
-                <span>Zonas Priorizadas INEC</span>
+                <input type="checkbox" id="capa-nbi" onchange="toggleCapaNBI(this.checked)">
+                <span>Pobreza NBI por Sector
+                    <small style="color:#a8a8a7;font-size:.65rem;display:block">Censo 2022 — INEC</small>
+                    <span id="nbi-spinner" style="display:none;margin-left:4px">
+                        <svg width="12" height="12" viewBox="0 0 12 12" style="animation:spin 1s linear infinite">
+                            <circle cx="6" cy="6" r="4" fill="none" stroke="#1b7505" stroke-width="2" stroke-dasharray="12 6"/>
+                        </svg>
+                    </span>
+                </span>
             </label>
+            <div id="nbi-aviso" style="display:none;font-size:.68rem;color:#dba112;padding:4px 6px;background:#fffbe6;border-radius:6px;margin-top:4px;border:1px solid #ffe58f">
+                ⚠️ Acerca el mapa (zoom ≥ 11) para ver los sectores
+            </div>
         </div>
 
         <div class="sidebar-section-title">Estado del Proyecto</div>
@@ -386,14 +396,161 @@ function cargarMarcadores(params = {}) {
         .catch(err => console.error('Error cargando proyectos:', err));
 }
 
-// Simulación visual en consola para capas no preparadas en backend todavía
 function toggleCapaFicticia(tipo) {
     if (tipo === 'proyectos') {
         const checked = document.getElementById('capa-proyectos').checked;
         if (checked) { aplicarFiltros(); } else { capaMarcadores.clearLayers(); document.getElementById('contadorNum').textContent = 0; }
+    }
+}
+
+// ── CAPA NBI POR SECTOR (INEC Censo 2022) ────────────────────────
+let nbiByCanton = null;       // { "1205": { nbi_pct: 50.8, canton: "Quevedo", ... } }
+let nbiLayer = null;          // LayerGroup de Leaflet
+let nbiLeyenda = null;        // Control leyenda
+let nbiCargando = false;
+
+function getNBIColor(pct) {
+    if (pct === null || pct === undefined) return '#cccccc';
+    if (pct >= 80) return '#800026';
+    if (pct >= 65) return '#bd0026';
+    if (pct >= 50) return '#e31a1c';
+    if (pct >= 40) return '#fc4e2a';
+    if (pct >= 30) return '#fd8d3c';
+    if (pct >= 20) return '#feb24c';
+    return '#fed976';
+}
+
+function sectorDPA(secCode) {
+    // sec tiene formato "120504XXYY" — los primeros 4 chars = canton DPA
+    return secCode ? String(secCode).substring(0, 4) : null;
+}
+
+function estilizarSector(feature) {
+    const dpa = sectorDPA(feature.properties.sec);
+    const info = dpa && nbiByCanton ? nbiByCanton[dpa] : null;
+    const pct = info ? info.nbi_pct : null;
+    return {
+        fillColor: getNBIColor(pct),
+        weight: 0.3,
+        opacity: 0.6,
+        color: '#555',
+        fillOpacity: 0.65
+    };
+}
+
+function onSectorHover(e) {
+    const layer = e.target;
+    layer.setStyle({ weight: 1.5, color: '#222', fillOpacity: 0.85 });
+    layer.bringToFront();
+    const sec = layer.feature.properties.sec;
+    const dpa = sectorDPA(sec);
+    const info = dpa && nbiByCanton ? nbiByCanton[dpa] : null;
+    const canton = info ? info.canton : 'Sin datos';
+    const prov = info ? info.provincia : '';
+    const pct = info ? info.nbi_pct.toFixed(1) + '%' : 'N/D';
+    layer.bindTooltip(
+        `<div style="font-family:'Nexa','Segoe UI',sans-serif;font-size:.8rem;padding:4px 2px">
+            <b>Sector:</b> ${sec}<br>
+            <b>Cantón:</b> ${canton}<br>
+            <b>Provincia:</b> ${prov}<br>
+            <b>NBI 2022:</b> <span style="font-weight:800;color:${getNBIColor(info ? info.nbi_pct : null)}">${pct}</span>
+         </div>`,
+        { sticky: true, direction: 'top' }
+    ).openTooltip();
+}
+
+function onSectorOut(e) {
+    nbiLayer && nbiLayer.resetStyle(e.target);
+}
+
+function cargarSectoresViewport() {
+    if (!document.getElementById('capa-nbi').checked) return;
+    if (!nbiByCanton) return;
+
+    const z = map.getZoom();
+    // Solo cargar sectores cuando el zoom es suficiente (evita cargar 52k features)
+    if (z < 11) {
+        if (nbiLayer) { map.removeLayer(nbiLayer); nbiLayer = null; }
+        document.getElementById('nbi-aviso').style.display = 'block';
+        return;
+    }
+    document.getElementById('nbi-aviso').style.display = 'none';
+    if (nbiCargando) return;
+
+    const b = map.getBounds();
+    const geom = encodeURIComponent(JSON.stringify({
+        xmin: b.getWest(), ymin: b.getSouth(),
+        xmax: b.getEast(), ymax: b.getNorth()
+    }));
+    const url = `https://idgn.ecuadorencifras.gob.ec/server/rest/services/WMS_MGN2025/MapServer/1/query?geometry=${geom}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=sec,parroquia&returnGeometry=true&f=geojson`;
+
+    nbiCargando = true;
+    document.getElementById('nbi-spinner').style.display = 'inline-block';
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (nbiLayer) { map.removeLayer(nbiLayer); nbiLayer = null; }
+            if (!document.getElementById('capa-nbi').checked) return;
+
+            nbiLayer = L.geoJSON(data, {
+                style: estilizarSector,
+                onEachFeature: (feature, layer) => {
+                    layer.on({ mouseover: onSectorHover, mouseout: onSectorOut });
+                }
+            }).addTo(map);
+            nbiLayer.bringToBack();
+        })
+        .catch(err => console.warn('Error cargando sectores NBI:', err))
+        .finally(() => {
+            nbiCargando = false;
+            document.getElementById('nbi-spinner').style.display = 'none';
+        });
+}
+
+function agregarLeyendaNBI() {
+    if (nbiLeyenda) return;
+    nbiLeyenda = L.control({ position: 'bottomright' });
+    nbiLeyenda.onAdd = () => {
+        const div = L.DomUtil.create('div');
+        div.innerHTML = `
+            <div style="background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 2px 10px rgba(0,0,0,.18);font-family:'Nexa','Segoe UI',sans-serif;font-size:.75rem;min-width:160px">
+                <div style="font-weight:800;color:#1b7505;margin-bottom:6px;font-size:.78rem">
+                    📊 Pobreza NBI — Censo 2022
+                </div>
+                ${[['≥ 80%','#800026'],['65–79%','#bd0026'],['50–64%','#e31a1c'],
+                   ['40–49%','#fc4e2a'],['30–39%','#fd8d3c'],['20–29%','#feb24c'],['< 20%','#fed976']]
+                    .map(([lbl,col]) => `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">
+                        <div style="width:16px;height:12px;border-radius:2px;background:${col};opacity:.85;flex-shrink:0"></div>
+                        <span>${lbl}</span></div>`).join('')}
+                <div style="margin-top:6px;color:#a8a8a7;font-size:.65rem">Fuente: INEC — CPV 2022</div>
+            </div>`;
+        return div;
+    };
+    nbiLeyenda.addTo(map);
+}
+
+function toggleCapaNBI(activo) {
+    if (activo) {
+        // 1. Cargar datos NBI si no están cargados aún
+        if (!nbiByCanton) {
+            fetch('/api/capa-pobreza/')
+                .then(r => r.json())
+                .then(data => {
+                    nbiByCanton = data;
+                    cargarSectoresViewport();
+                });
+        } else {
+            cargarSectoresViewport();
+        }
+        agregarLeyendaNBI();
+        // Recargar al mover/zoom
+        map.on('moveend', cargarSectoresViewport);
     } else {
-        const estadoCapa = document.getElementById(`capa-${tipo}`).checked;
-        console.log(`[Capa Temática] ${tipo.toUpperCase()} cambiada a visible = ${estadoCapa}.`);
+        map.off('moveend', cargarSectoresViewport);
+        if (nbiLayer) { map.removeLayer(nbiLayer); nbiLayer = null; }
+        if (nbiLeyenda) { map.removeControl(nbiLeyenda); nbiLeyenda = null; }
+        document.getElementById('nbi-aviso').style.display = 'none';
     }
 }
 
