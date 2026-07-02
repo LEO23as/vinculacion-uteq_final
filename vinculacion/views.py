@@ -5,13 +5,25 @@ from django.http import JsonResponse
 from django.db.models import Q, Count
 from django.db.models.functions import ExtractYear
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+import json
 import os
 import uuid
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 
 from vinculacion.models import (
     Usuario, PeriodoAcademico, Facultad, Carrera,
     EntidadCooperante, TipoEntidad, Proyecto, FotoProyecto,
-    Convenio, AnexoConvenio, ProyectoDocente, ProyectoEstudiante
+    Convenio, AnexoConvenio, ProyectoDocente, ProyectoEstudiante,
+    Docente, Rol
+)
+from vinculacion.serializers import (
+    PeriodoSerializer, FacultadSerializer, CarreraSerializer,
+    EntidadSerializer, TipoEntidadSerializer, ProyectoSerializer,
+    ConvenioSerializer, DocenteSerializer, RolSerializer
 )
 from vinculacion.utils import verificar_password
 
@@ -1450,4 +1462,741 @@ def reportes_view(request):
         'por_canton': por_canton,
         'ESTADO_COLOR': ESTADO_COLOR,
         'ESTADO_LABEL': ESTADO_LABEL,
+    })
+
+
+# ─────────────────────────────────────────────
+#  API REST para Svelte
+# ─────────────────────────────────────────────
+
+@csrf_exempt
+def api_login(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if not username or not password:
+        return JsonResponse({'error': 'Credenciales requeridas'}, status=400)
+    try:
+        usuario = Usuario.objects.select_related('id_rol').get(username=username, activo=True)
+    except Usuario.DoesNotExist:
+        return JsonResponse({'error': 'Usuario o contraseña incorrectos'}, status=401)
+    from vinculacion.utils import verificar_password
+    if not verificar_password(password, usuario.password):
+        return JsonResponse({'error': 'Usuario o contraseña incorrectos'}, status=401)
+    request.session['usuario_id'] = usuario.id_usuario
+    request.session['usuario_nombre'] = usuario.nombres or username
+    request.session['usuario_rol'] = usuario.id_rol.nombre
+    usuario.ultimo_acceso = timezone.now()
+    usuario.save(update_fields=['ultimo_acceso'])
+    return JsonResponse({
+        'id': usuario.id_usuario,
+        'nombre': usuario.nombres or username,
+        'username': usuario.username,
+        'rol': usuario.id_rol.nombre,
+        'debe_cambiar_clave': usuario.debe_cambiar_clave,
+    })
+
+
+def api_logout(request):
+    request.session.flush()
+    return JsonResponse({'ok': True})
+
+
+def api_me(request):
+    uid = request.session.get('usuario_id')
+    if not uid:
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    try:
+        u = Usuario.objects.select_related('id_rol').get(id_usuario=uid)
+    except Usuario.DoesNotExist:
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    periodo = PeriodoAcademico.objects.filter(activo=True).first()
+    return JsonResponse({
+        'id': u.id_usuario,
+        'nombre': u.nombres or u.username,
+        'username': u.username,
+        'rol': u.id_rol.nombre,
+        'periodo': {'nombre': periodo.nombre, 'codigo': periodo.codigo} if periodo else None,
+    })
+
+
+@api_view(['GET'])
+def api_dashboard_stats(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    return Response({
+        'proyectos': Proyecto.objects.count(),
+        'entidades': EntidadCooperante.objects.filter(activo=True).count(),
+        'convenios': Convenio.objects.count(),
+        'facultades': Facultad.objects.filter(activo=True).count(),
+        'periodos': PeriodoAcademico.objects.count(),
+        'proyectos_activos': Proyecto.objects.filter(estado='EN_EJECUCION').count(),
+    })
+
+
+@api_view(['GET'])
+def api_periodos(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    qs = PeriodoAcademico.objects.all().order_by('-fecha_inicio')
+    return Response(PeriodoSerializer(qs, many=True).data)
+
+
+@api_view(['GET'])
+def api_facultades(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    qs = Facultad.objects.all().order_by('nombre')
+    return Response(FacultadSerializer(qs, many=True).data)
+
+
+@api_view(['GET'])
+def api_carreras(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    qs = Carrera.objects.select_related('id_facultad').all().order_by('nombre')
+    return Response(CarreraSerializer(qs, many=True).data)
+
+
+@api_view(['GET'])
+def api_entidades(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    q = request.GET.get('q', '')
+    qs = EntidadCooperante.objects.select_related('id_tipo').all().order_by('nombre')
+    if q:
+        qs = qs.filter(Q(nombre__icontains=q) | Q(ruc__icontains=q))
+    return Response(EntidadSerializer(qs, many=True).data)
+
+
+@api_view(['GET'])
+def api_proyectos(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    q = request.GET.get('q', '')
+    qs = Proyecto.objects.select_related(
+        'id_facultad', 'id_carrera', 'id_periodo_inicio'
+    ).all().order_by('-creado_en')
+    if q:
+        qs = qs.filter(Q(nombre__icontains=q) | Q(codigo__icontains=q))
+    return Response(ProyectoSerializer(qs, many=True).data)
+
+
+@api_view(['GET'])
+def api_convenios(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    qs = Convenio.objects.select_related(
+        'id_proyecto', 'id_entidad', 'id_periodo'
+    ).all().order_by('-creado_en')
+    return Response(ConvenioSerializer(qs, many=True).data)
+
+
+@api_view(['GET'])
+def api_docentes(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    qs = Docente.objects.all().order_by('apellidos')
+    return Response(DocenteSerializer(qs, many=True).data)
+
+
+def _require_auth(request):
+    return request.session.get('usuario_id')
+
+
+# ── PERIODOS CRUD ──────────────────────────────────────────────────
+
+@csrf_exempt
+def api_periodo_detail(request, id):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    periodo = get_object_or_404(PeriodoAcademico, id_periodo=id)
+    if request.method == 'GET':
+        return JsonResponse(PeriodoSerializer(periodo).data)
+    if request.method in ('PUT', 'PATCH'):
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            data = {}
+        for field in ['codigo', 'nombre', 'tipo', 'fecha_inicio', 'fecha_fin']:
+            if field in data and data[field]:
+                setattr(periodo, field, data[field])
+        if 'activo' in data:
+            periodo.activo = bool(data['activo'])
+        periodo.save()
+        return JsonResponse(PeriodoSerializer(periodo).data)
+    if request.method == 'DELETE':
+        periodo.delete()
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'method'}, status=405)
+
+
+@csrf_exempt
+def api_periodos_post(request):
+    """POST para crear periodo (GET ya lo maneja api_periodos)."""
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    try:
+        if PeriodoAcademico.objects.filter(codigo=data['codigo']).exists():
+            return JsonResponse({'error': f"Ya existe un periodo con el código {data['codigo']}"}, status=400)
+        periodo = PeriodoAcademico.objects.create(
+            codigo=data['codigo'],
+            nombre=data['nombre'],
+            tipo=data['tipo'],
+            fecha_inicio=data['fecha_inicio'],
+            fecha_fin=data['fecha_fin'],
+            activo=data.get('activo', True),
+        )
+        return JsonResponse(PeriodoSerializer(periodo).data, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+# ── FACULTADES CRUD ──────────────────────────────────────────────────
+
+@csrf_exempt
+def api_facultad_detail(request, id):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    facultad = get_object_or_404(Facultad, id_facultad=id)
+    if request.method == 'GET':
+        return JsonResponse(FacultadSerializer(facultad).data)
+    if request.method in ('PUT', 'PATCH'):
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            data = {}
+        for field in ['codigo', 'nombre', 'nombre_corto', 'campus']:
+            if field in data:
+                setattr(facultad, field, data[field])
+        if 'activo' in data:
+            facultad.activo = bool(data['activo'])
+        facultad.save()
+        return JsonResponse(FacultadSerializer(facultad).data)
+    return JsonResponse({'error': 'method'}, status=405)
+
+
+# ── CARRERAS CRUD ──────────────────────────────────────────────────
+
+@csrf_exempt
+def api_carreras_post(request):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    try:
+        fac = Facultad.objects.get(id_facultad=data['id_facultad'])
+        carrera = Carrera.objects.create(
+            nombre=data['nombre'],
+            codigo=data.get('codigo', ''),
+            id_facultad=fac,
+            horas_vinculacion=data.get('horas_vinculacion', 160),
+            area_conocimiento=data.get('area_conocimiento', '') or None,
+            activo=data.get('activo', True),
+        )
+        return JsonResponse(CarreraSerializer(carrera).data, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def api_carrera_detail(request, id):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    carrera = get_object_or_404(Carrera, id_carrera=id)
+    if request.method == 'GET':
+        return JsonResponse(CarreraSerializer(carrera).data)
+    if request.method in ('PUT', 'PATCH'):
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            data = {}
+        for field in ['nombre', 'codigo', 'horas_vinculacion', 'area_conocimiento']:
+            if field in data:
+                setattr(carrera, field, data[field])
+        if 'id_facultad' in data:
+            carrera.id_facultad = get_object_or_404(Facultad, id_facultad=data['id_facultad'])
+        if 'activo' in data:
+            carrera.activo = bool(data['activo'])
+        carrera.save()
+        return JsonResponse(CarreraSerializer(carrera).data)
+    if request.method == 'DELETE':
+        carrera.delete()
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'method'}, status=405)
+
+
+# ── ENTIDADES CRUD ─────────────────────────────────────────────────
+
+@csrf_exempt
+def api_entidades_post(request):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method == 'GET':
+        qs = TipoEntidad.objects.all().order_by('nombre')
+        return JsonResponse({'tipos': TipoEntidadSerializer(qs, many=True).data})
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    try:
+        tipo = TipoEntidad.objects.get(id_tipo=data['id_tipo'])
+        ruc = data.get('ruc', '').strip() or None
+        if ruc and EntidadCooperante.objects.filter(ruc=ruc).exists():
+            return JsonResponse({'error': f'Ya existe una entidad con el RUC {ruc}'}, status=400)
+        entidad = EntidadCooperante.objects.create(
+            nombre=data['nombre'],
+            nombre_corto=data.get('nombre_corto', '') or None,
+            id_tipo=tipo,
+            ruc=ruc,
+            representante_legal=data.get('representante_legal', '') or None,
+            cargo_representante=data.get('cargo_representante', '') or None,
+            telefono=data.get('telefono', '') or None,
+            correo=data.get('correo', '') or None,
+            pagina_web=data.get('pagina_web', '') or None,
+            provincia=data.get('provincia', '') or None,
+            canton=data.get('canton', '') or None,
+            parroquia=data.get('parroquia', '') or None,
+            direccion=data.get('direccion', '') or None,
+            sector=data.get('sector', '') or None,
+            observaciones=data.get('observaciones', '') or None,
+            activo=data.get('activo', True),
+        )
+        return JsonResponse(EntidadSerializer(entidad).data, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def api_entidad_detail(request, id):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    entidad = get_object_or_404(EntidadCooperante, id_entidad=id)
+    if request.method == 'GET':
+        return JsonResponse(EntidadSerializer(entidad).data)
+    if request.method in ('PUT', 'PATCH'):
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            data = {}
+        for field in ['nombre', 'nombre_corto', 'ruc', 'representante_legal', 'cargo_representante',
+                      'telefono', 'correo', 'pagina_web', 'provincia', 'canton', 'parroquia',
+                      'direccion', 'sector', 'observaciones']:
+            if field in data:
+                setattr(entidad, field, data[field] or None)
+        if 'id_tipo' in data:
+            entidad.id_tipo = get_object_or_404(TipoEntidad, id_tipo=data['id_tipo'])
+        if 'activo' in data:
+            entidad.activo = bool(data['activo'])
+        entidad.save()
+        return JsonResponse(EntidadSerializer(entidad).data)
+    return JsonResponse({'error': 'method'}, status=405)
+
+
+# ── PROYECTOS CRUD ─────────────────────────────────────────────────
+
+@csrf_exempt
+def api_proyecto_create(request):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method'}, status=405)
+    try:
+        codigo = request.POST.get('codigo', '').strip()
+        nombre = request.POST.get('nombre', '').strip()
+        if not codigo or not nombre:
+            return JsonResponse({'error': 'Código y nombre son obligatorios'}, status=400)
+        if Proyecto.objects.filter(codigo=codigo).exists():
+            return JsonResponse({'error': f'Ya existe un proyecto con el código {codigo}'}, status=400)
+        lat = request.POST.get('latitud', '').strip() or None
+        lng = request.POST.get('longitud', '').strip() or None
+        proyecto = Proyecto.objects.create(
+            codigo=codigo,
+            nombre=nombre,
+            nombre_corto=request.POST.get('nombre_corto', '').strip() or None,
+            id_facultad=Facultad.objects.get(id_facultad=request.POST['id_facultad']),
+            id_carrera=Carrera.objects.get(id_carrera=request.POST['id_carrera']),
+            id_periodo_inicio=PeriodoAcademico.objects.get(id_periodo=request.POST['id_periodo_inicio']),
+            estado=request.POST.get('estado', 'EN_EJECUCION'),
+            provincia=request.POST.get('provincia', '').strip() or None,
+            canton=request.POST.get('canton', '').strip() or None,
+            parroquia=request.POST.get('parroquia', '').strip() or None,
+            sector=request.POST.get('sector', '').strip() or None,
+            descripcion=request.POST.get('descripcion', '').strip() or None,
+            objetivo_general=request.POST.get('objetivo_general', '').strip() or None,
+            ods=request.POST.get('ods', '').strip() or None,
+            linea_vinculacion=request.POST.get('linea_vinculacion', '').strip() or None,
+            observaciones=request.POST.get('observaciones', '').strip() or None,
+            latitud=lat,
+            longitud=lng,
+            creado_en=timezone.now(),
+            actualizado_en=timezone.now(),
+        )
+        _guardar_fotos(request, proyecto)
+        return JsonResponse(ProyectoSerializer(proyecto).data, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def api_proyecto_update(request, id):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    proyecto = get_object_or_404(Proyecto, id_proyecto=id)
+    if request.method == 'GET':
+        fotos = list(FotoProyecto.objects.filter(id_proyecto=proyecto).values('id_foto', 'ruta_foto', 'titulo'))
+        data = ProyectoSerializer(proyecto).data
+        data['id_facultad'] = proyecto.id_facultad_id
+        data['id_carrera'] = proyecto.id_carrera_id
+        data['id_periodo_inicio'] = proyecto.id_periodo_inicio_id
+        data['latitud'] = str(proyecto.latitud) if proyecto.latitud else ''
+        data['longitud'] = str(proyecto.longitud) if proyecto.longitud else ''
+        data['descripcion'] = proyecto.descripcion or ''
+        data['objetivo_general'] = proyecto.objetivo_general or ''
+        data['ods'] = proyecto.ods or ''
+        data['linea_vinculacion'] = proyecto.linea_vinculacion or ''
+        data['observaciones'] = proyecto.observaciones or ''
+        data['fotos'] = [{'id': f['id_foto'], 'url': '/media/' + f['ruta_foto'], 'titulo': f['titulo']} for f in fotos]
+        return JsonResponse(data)
+    if request.method == 'POST':
+        try:
+            codigo = request.POST.get('codigo', '').strip()
+            nombre = request.POST.get('nombre', '').strip()
+            if not codigo or not nombre:
+                return JsonResponse({'error': 'Código y nombre son obligatorios'}, status=400)
+            if Proyecto.objects.filter(codigo=codigo).exclude(id_proyecto=id).exists():
+                return JsonResponse({'error': f'Ya existe otro proyecto con el código {codigo}'}, status=400)
+            proyecto.codigo = codigo
+            proyecto.nombre = nombre
+            proyecto.nombre_corto = request.POST.get('nombre_corto', '').strip() or None
+            proyecto.id_facultad = Facultad.objects.get(id_facultad=request.POST['id_facultad'])
+            proyecto.id_carrera = Carrera.objects.get(id_carrera=request.POST['id_carrera'])
+            proyecto.id_periodo_inicio = PeriodoAcademico.objects.get(id_periodo=request.POST['id_periodo_inicio'])
+            proyecto.estado = request.POST.get('estado', proyecto.estado)
+            proyecto.provincia = request.POST.get('provincia', '').strip() or None
+            proyecto.canton = request.POST.get('canton', '').strip() or None
+            proyecto.parroquia = request.POST.get('parroquia', '').strip() or None
+            proyecto.sector = request.POST.get('sector', '').strip() or None
+            proyecto.descripcion = request.POST.get('descripcion', '').strip() or None
+            proyecto.objetivo_general = request.POST.get('objetivo_general', '').strip() or None
+            proyecto.ods = request.POST.get('ods', '').strip() or None
+            proyecto.linea_vinculacion = request.POST.get('linea_vinculacion', '').strip() or None
+            proyecto.observaciones = request.POST.get('observaciones', '').strip() or None
+            lat = request.POST.get('latitud', '').strip()
+            lng = request.POST.get('longitud', '').strip()
+            proyecto.latitud = lat or None
+            proyecto.longitud = lng or None
+            proyecto.actualizado_en = timezone.now()
+            proyecto.save()
+            _guardar_fotos(request, proyecto)
+            return JsonResponse(ProyectoSerializer(proyecto).data)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'error': 'method'}, status=405)
+
+
+@csrf_exempt
+def api_proyecto_eliminar_foto(request, id_foto):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method == 'DELETE':
+        foto = get_object_or_404(FotoProyecto, id_foto=id_foto)
+        ruta = os.path.join(settings.MEDIA_ROOT, str(foto.ruta_foto))
+        if os.path.exists(ruta):
+            os.remove(ruta)
+        foto.delete()
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'method'}, status=405)
+
+
+# ── CONVENIOS CRUD ─────────────────────────────────────────────────
+
+@csrf_exempt
+def api_convenios_post(request):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method == 'GET':
+        # Lista completa con filtros
+        q = request.GET.get('q', '')
+        estado = request.GET.get('estado', '')
+        periodo_id = request.GET.get('periodo', '')
+        qs = Convenio.objects.select_related('id_proyecto', 'id_entidad', 'id_periodo').all().order_by('-creado_en')
+        if q:
+            qs = qs.filter(
+                Q(numero_memorando__icontains=q) |
+                Q(id_entidad__nombre__icontains=q) |
+                Q(id_proyecto__nombre__icontains=q)
+            )
+        if estado:
+            qs = qs.filter(estado=estado)
+        if periodo_id:
+            qs = qs.filter(id_periodo_id=periodo_id)
+        data = []
+        for c in qs:
+            data.append({
+                'id_convenio': c.pk,
+                'numero_memorando': c.numero_memorando or '',
+                'proyecto_nombre': c.id_proyecto.nombre_corto or c.id_proyecto.nombre,
+                'entidad_nombre': c.id_entidad.nombre,
+                'periodo_nombre': c.id_periodo.nombre if c.id_periodo else '',
+                'fecha_firma': str(c.fecha_firma) if c.fecha_firma else '',
+                'estudiantes_asignados': c.estudiantes_asignados or 0,
+                'estado': c.estado,
+                'id_proyecto': c.id_proyecto_id,
+                'id_entidad': c.id_entidad_id,
+                'id_periodo': c.id_periodo_id if c.id_periodo else None,
+            })
+        return JsonResponse({'results': data})
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    try:
+        convenio = Convenio.objects.create(
+            id_proyecto=Proyecto.objects.get(pk=data['id_proyecto']),
+            id_entidad=EntidadCooperante.objects.get(pk=data['id_entidad']),
+            id_periodo=PeriodoAcademico.objects.get(pk=data['id_periodo']) if data.get('id_periodo') else None,
+            numero_memorando=data.get('numero_memorando', '') or None,
+            fecha_firma=data.get('fecha_firma') or None,
+            fecha_inicio=data.get('fecha_inicio') or None,
+            fecha_fin=data.get('fecha_fin') or None,
+            duracion_anios=data.get('duracion_anios') or 2,
+            estudiantes_asignados=data.get('estudiantes_asignados') or None,
+            estado=data.get('estado', 'VIGENTE'),
+            observaciones=data.get('observaciones', '') or None,
+        )
+        return JsonResponse({'id_convenio': convenio.pk, 'ok': True}, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def api_convenio_detail(request, id):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    convenio = get_object_or_404(
+        Convenio.objects.select_related('id_proyecto', 'id_entidad', 'id_periodo'), pk=id
+    )
+    if request.method == 'GET':
+        anexos = list(convenio.anexos.all().values(
+            'id_anexo', 'nombre_archivo', 'tipo_documento', 'tamanio_kb', 'descripcion', 'ruta_archivo', 'subido_en'
+        ))
+        for a in anexos:
+            a['url'] = '/media/' + a['ruta_archivo']
+            a['subido_en'] = str(a['subido_en'])
+        return JsonResponse({
+            'id_convenio': convenio.pk,
+            'numero_memorando': convenio.numero_memorando or '',
+            'estado': convenio.estado,
+            'fecha_firma': str(convenio.fecha_firma) if convenio.fecha_firma else '',
+            'fecha_inicio': str(convenio.fecha_inicio) if convenio.fecha_inicio else '',
+            'fecha_fin': str(convenio.fecha_fin) if convenio.fecha_fin else '',
+            'duracion_anios': convenio.duracion_anios,
+            'estudiantes_asignados': convenio.estudiantes_asignados or 0,
+            'observaciones': convenio.observaciones or '',
+            'id_proyecto': convenio.id_proyecto_id,
+            'proyecto_nombre': convenio.id_proyecto.nombre,
+            'proyecto_corto': convenio.id_proyecto.nombre_corto or '',
+            'id_entidad': convenio.id_entidad_id,
+            'entidad_nombre': convenio.id_entidad.nombre,
+            'entidad_siglas': convenio.id_entidad.nombre_corto or '',
+            'entidad_representante': convenio.id_entidad.representante_legal or '',
+            'entidad_cargo': convenio.id_entidad.cargo_representante or '',
+            'entidad_provincia': convenio.id_entidad.provincia or '',
+            'entidad_canton': convenio.id_entidad.canton or '',
+            'entidad_telefono': convenio.id_entidad.telefono or '',
+            'entidad_correo': convenio.id_entidad.correo or '',
+            'id_periodo': convenio.id_periodo_id,
+            'periodo_nombre': convenio.id_periodo.nombre if convenio.id_periodo else '',
+            'anexos': anexos,
+        })
+    if request.method in ('PUT', 'PATCH'):
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            data = {}
+        for field in ['numero_memorando', 'fecha_firma', 'fecha_inicio', 'fecha_fin',
+                      'duracion_anios', 'estudiantes_asignados', 'estado', 'observaciones']:
+            if field in data:
+                setattr(convenio, field, data[field] or None)
+        if 'id_periodo' in data and data['id_periodo']:
+            convenio.id_periodo = get_object_or_404(PeriodoAcademico, pk=data['id_periodo'])
+        if 'estado' in data:
+            convenio.estado = data['estado']
+        convenio.save()
+        return JsonResponse({'ok': True})
+    if request.method == 'DELETE':
+        for anexo in convenio.anexos.all():
+            ruta = os.path.join(settings.MEDIA_ROOT, anexo.ruta_archivo)
+            if os.path.exists(ruta):
+                os.remove(ruta)
+        convenio.delete()
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'method'}, status=405)
+
+
+@csrf_exempt
+def api_convenio_anexo_subir(request, id):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method'}, status=405)
+    convenio = get_object_or_404(Convenio, pk=id)
+    archivo = request.FILES.get('archivo')
+    if not archivo:
+        return JsonResponse({'error': 'No se recibió archivo'}, status=400)
+    carpeta = os.path.join(settings.MEDIA_ROOT, 'convenios', str(id))
+    os.makedirs(carpeta, exist_ok=True)
+    ext = os.path.splitext(archivo.name)[1].lower()
+    nombre_unico = f"{uuid.uuid4().hex}{ext}"
+    ruta_completa = os.path.join(carpeta, nombre_unico)
+    with open(ruta_completa, 'wb+') as f:
+        for chunk in archivo.chunks():
+            f.write(chunk)
+    tamanio_kb = archivo.size // 1024
+    anexo = AnexoConvenio.objects.create(
+        id_convenio=convenio,
+        nombre_archivo=archivo.name,
+        ruta_archivo=f'convenios/{id}/{nombre_unico}',
+        tipo_documento=request.POST.get('tipo_documento', '') or None,
+        tamanio_kb=tamanio_kb,
+        descripcion=request.POST.get('descripcion', '') or None,
+    )
+    return JsonResponse({
+        'id_anexo': anexo.pk,
+        'nombre_archivo': anexo.nombre_archivo,
+        'tipo_documento': anexo.tipo_documento or '',
+        'tamanio_kb': anexo.tamanio_kb,
+        'url': '/media/' + anexo.ruta_archivo,
+    }, status=201)
+
+
+@csrf_exempt
+def api_anexo_eliminar(request, id_anexo):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method != 'DELETE':
+        return JsonResponse({'error': 'method'}, status=405)
+    anexo = get_object_or_404(AnexoConvenio, pk=id_anexo)
+    ruta = os.path.join(settings.MEDIA_ROOT, anexo.ruta_archivo)
+    if os.path.exists(ruta):
+        os.remove(ruta)
+    anexo.delete()
+    return JsonResponse({'ok': True})
+
+
+# ── REPORTES ───────────────────────────────────────────────────────
+
+def api_reportes_stats(request):
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+
+    total_proyectos = Proyecto.objects.count()
+    total_entidades = EntidadCooperante.objects.filter(activo=True).count()
+    total_convenios = Convenio.objects.count()
+    con_geo = Proyecto.objects.filter(latitud__isnull=False, longitud__isnull=False).count()
+
+    estados_count = {}
+    for e in Proyecto.objects.values('estado').annotate(c=Count('estado')):
+        estados_count[e['estado']] = e['c']
+
+    por_facultad = list(
+        Proyecto.objects.values('id_facultad__nombre_corto', 'id_facultad__nombre')
+        .annotate(c=Count('id_proyecto'))
+        .order_by('-c')[:10]
+    )
+    por_facultad_data = {
+        'labels': [x['id_facultad__nombre_corto'] or x['id_facultad__nombre'] for x in por_facultad],
+        'values': [x['c'] for x in por_facultad],
+    }
+
+    por_provincia = list(
+        Proyecto.objects.exclude(provincia__isnull=True).exclude(provincia='')
+        .values('provincia').annotate(c=Count('id_proyecto')).order_by('-c')[:10]
+    )
+
+    por_canton = list(
+        Proyecto.objects.exclude(canton__isnull=True).exclude(canton='')
+        .values('canton').annotate(c=Count('id_proyecto')).order_by('-c')[:8]
+    )
+
+    convenios_estados = {}
+    for e in Convenio.objects.values('estado').annotate(c=Count('id_convenio')):
+        convenios_estados[e['estado']] = e['c']
+
+    entidades_tipos = list(
+        EntidadCooperante.objects.values('id_tipo__nombre').annotate(c=Count('id_entidad')).order_by('-c')
+    )
+
+    por_periodo = list(
+        Proyecto.objects.values('id_periodo_inicio__nombre', 'id_periodo_inicio__codigo')
+        .annotate(c=Count('id_proyecto')).order_by('-c')[:8]
+    )
+
+    ultimos = list(
+        Proyecto.objects.select_related('id_facultad', 'id_periodo_inicio')
+        .order_by('-creado_en')[:10]
+        .values('id_proyecto', 'codigo', 'nombre', 'id_facultad__nombre_corto', 'id_periodo_inicio__nombre', 'estado')
+    )
+
+    en_ejecucion = estados_count.get('EN_EJECUCION', 0)
+    finalizado = estados_count.get('FINALIZADO', 0)
+
+    return JsonResponse({
+        'kpis': {
+            'total_proyectos': total_proyectos,
+            'en_ejecucion': en_ejecucion,
+            'total_entidades': total_entidades,
+            'total_convenios': total_convenios,
+            'con_geo': con_geo,
+            'finalizado': finalizado,
+            'pct_ejecucion': round(en_ejecucion * 100 / total_proyectos, 1) if total_proyectos else 0,
+            'pct_finalizado': round(finalizado * 100 / total_proyectos, 1) if total_proyectos else 0,
+        },
+        'estados': estados_count,
+        'por_facultad': por_facultad_data,
+        'por_provincia': {
+            'labels': [x['provincia'] for x in por_provincia],
+            'values': [x['c'] for x in por_provincia],
+        },
+        'por_canton': {
+            'labels': [x['canton'] for x in por_canton],
+            'values': [x['c'] for x in por_canton],
+        },
+        'convenios_estados': convenios_estados,
+        'entidades_tipos': {
+            'labels': [x['id_tipo__nombre'] for x in entidades_tipos],
+            'values': [x['c'] for x in entidades_tipos],
+        },
+        'por_periodo': {
+            'labels': [x['id_periodo_inicio__codigo'] or x['id_periodo_inicio__nombre'] for x in por_periodo],
+            'values': [x['c'] for x in por_periodo],
+        },
+        'ultimos_proyectos': [
+            {
+                'id': x['id_proyecto'], 'codigo': x['codigo'], 'nombre': x['nombre'],
+                'facultad': x['id_facultad__nombre_corto'],
+                'periodo': x['id_periodo_inicio__nombre'],
+                'estado': x['estado'],
+            } for x in ultimos
+        ],
     })
