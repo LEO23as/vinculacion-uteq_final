@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { fetchAPI } from '$lib/stores';
+  import MapaSelector from '$lib/MapaSelector.svelte';
 
     const id = $derived($page.params.id);
 
@@ -10,6 +11,7 @@
   let carrerasFil = $state([]);
   let periodos = $state([]);
   let fotosExist = $state([]);
+  let ubicaciones = $state([]);
   let saving = $state(false);
   let loading = $state(true);
   let error = $state('');
@@ -56,6 +58,16 @@
       form.linea_vinculacion = data.linea_vinculacion || '';
       form.observaciones = data.observaciones || '';
       fotosExist = data.fotos || [];
+      ubicaciones = data.ubicaciones || [];
+      // Compatibilidad: si el proyecto no tenía ubicaciones pero sí lat/long, crea una principal
+      if (!ubicaciones.length && data.latitud && data.longitud) {
+        ubicaciones = [{
+          nombre_lugar: data.sector || data.canton || 'Ubicación principal',
+          provincia: data.provincia || '', canton: data.canton || '',
+          parroquia: data.parroquia || '', sector: data.sector || '',
+          latitud: String(data.latitud), longitud: String(data.longitud), es_principal: true,
+        }];
+      }
       if (form.id_facultad) {
         const all = await fetchAPI('/api/carreras/');
         carrerasFil = all.filter(c => String(c.id_facultad) === form.id_facultad);
@@ -94,10 +106,23 @@
 
   async function guardar() {
     error = '';
+    if (!ubicaciones.length) {
+      error = 'Agrega al menos una ubicación en el mapa.';
+      return;
+    }
+    const principal = ubicaciones.find(u => u.es_principal) || ubicaciones[0];
+    form.latitud = principal.latitud;
+    form.longitud = principal.longitud;
+    form.provincia = principal.provincia || '';
+    form.canton = principal.canton || '';
+    form.parroquia = principal.parroquia || '';
+    form.sector = principal.sector || '';
+
     saving = true;
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      fd.append('ubicaciones', JSON.stringify(ubicaciones));
       nuevasFotos.forEach(f => fd.append('fotos', f));
       const res = await fetch(`/api/proyectos/${id}/edit/`, {
         method:'POST', credentials:'include', body:fd,
@@ -178,15 +203,8 @@
     </div>
 
     <div class="sec">
-      <h4 class="sec-hdr">Ubicación</h4>
-      <div class="grid-row">
-        <div class="field col-3"><label>Provincia</label><input bind:value={form.provincia} /></div>
-        <div class="field col-3"><label>Cantón</label><input bind:value={form.canton} /></div>
-        <div class="field col-3"><label>Parroquia</label><input bind:value={form.parroquia} /></div>
-        <div class="field col-3"><label>Sector</label><input bind:value={form.sector} /></div>
-        <div class="field col-2"><label>Latitud</label><input type="number" step="0.0000001" bind:value={form.latitud} /></div>
-        <div class="field col-2"><label>Longitud</label><input type="number" step="0.0000001" bind:value={form.longitud} /></div>
-      </div>
+      <h4 class="sec-hdr">Ubicación geográfica <span class="sec-note">— busca o marca en el mapa dónde se ejecuta el proyecto (uno o varios lugares)</span></h4>
+      <MapaSelector bind:ubicaciones={ubicaciones} />
     </div>
 
     <div class="sec">
@@ -206,7 +224,7 @@
         <div class="fotos-existentes">
           {#each fotosExist as f}
             <div class="foto-exist">
-              <img src={API + f.url} alt={f.titulo} />
+              <img src={f.url} alt={f.titulo} />
               <button onclick={() => eliminarFotoExist(f.id)} title="Eliminar foto">
                 <i class="bi bi-x"></i>
               </button>
@@ -247,6 +265,7 @@
 <style>
 
 .loading-wrap { display:flex;align-items:center;gap:10px;color:var(--gris);font-weight:600;padding:40px;justify-content:center; }
+.sec-note { font-size:.72rem;font-weight:600;color:var(--gris); }
 @keyframes spin { to { transform:rotate(360deg); } }
 .spin { display:inline-block;animation:spin .7s linear infinite; }
 </style>

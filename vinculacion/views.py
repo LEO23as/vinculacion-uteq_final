@@ -18,8 +18,10 @@ from vinculacion.models import (
     Usuario, PeriodoAcademico, Facultad, Carrera,
     EntidadCooperante, TipoEntidad, Proyecto, FotoProyecto,
     Convenio, AnexoConvenio, ProyectoDocente, ProyectoEstudiante,
-    Docente, Rol
+    Docente, Rol, ProyectoUbicacion, DocumentoProyecto,
+    ProyectoBeneficiario, InformeSemestral, EvaluacionImpacto, ActividadSemanal
 )
+from django.db import transaction
 from vinculacion.serializers import (
     PeriodoSerializer, FacultadSerializer, CarreraSerializer,
     EntidadSerializer, TipoEntidadSerializer, ProyectoSerializer,
@@ -498,6 +500,50 @@ def _guardar_fotos(request, proyecto):
             titulo=nombre_archivo,
             subida_en=timezone.now(),
         )
+
+
+def _guardar_ubicaciones(request, proyecto, reemplazar=False):
+    """
+    Crea filas ProyectoUbicacion desde el JSON 'ubicaciones' del request.
+    Cada ubicación: {nombre_lugar, provincia, canton, parroquia, sector,
+                     latitud, longitud, es_principal}.
+    Devuelve la ubicación principal (o None) para reflejarla en el proyecto.
+    """
+    raw = request.POST.get('ubicaciones')
+    if not raw:
+        return None
+    try:
+        lista = json.loads(raw)
+    except Exception:
+        return None
+    if not isinstance(lista, list) or not lista:
+        return None
+
+    if reemplazar:
+        ProyectoUbicacion.objects.filter(id_proyecto=proyecto).delete()
+
+    principal = None
+    hay_principal = any(u.get('es_principal') for u in lista)
+    for i, u in enumerate(lista):
+        lat = str(u.get('latitud') or '').strip() or None
+        lng = str(u.get('longitud') or '').strip() or None
+        if lat is None or lng is None:
+            continue
+        es_principal = bool(u.get('es_principal')) or (not hay_principal and i == 0)
+        ubic = ProyectoUbicacion.objects.create(
+            id_proyecto=proyecto,
+            nombre_lugar=(u.get('nombre_lugar') or '').strip() or None,
+            provincia=(u.get('provincia') or '').strip() or 'N/D',
+            canton=(u.get('canton') or '').strip() or None,
+            parroquia=(u.get('parroquia') or '').strip() or None,
+            sector=(u.get('sector') or '').strip() or None,
+            latitud=lat,
+            longitud=lng,
+            es_principal=es_principal,
+        )
+        if es_principal:
+            principal = ubic
+    return principal
 
 
 def proyecto_nuevo(request):
@@ -1657,6 +1703,7 @@ def api_periodos_post(request):
             fecha_inicio=data['fecha_inicio'],
             fecha_fin=data['fecha_fin'],
             activo=data.get('activo', True),
+            creado_en=timezone.now(),
         )
         return JsonResponse(PeriodoSerializer(periodo).data, status=201)
     except Exception as e:
@@ -1827,30 +1874,77 @@ def api_proyecto_create(request):
             return JsonResponse({'error': f'Ya existe un proyecto con el código {codigo}'}, status=400)
         lat = request.POST.get('latitud', '').strip() or None
         lng = request.POST.get('longitud', '').strip() or None
+        # nombre_corto se autogenera del título (se quitó como campo redundante)
+        nombre_corto = request.POST.get('nombre_corto', '').strip() or (nombre[:120] if nombre else None)
         proyecto = Proyecto.objects.create(
             codigo=codigo,
             nombre=nombre,
-            nombre_corto=request.POST.get('nombre_corto', '').strip() or None,
+            nombre_corto=nombre_corto,
             id_facultad=Facultad.objects.get(id_facultad=request.POST['id_facultad']),
             id_carrera=Carrera.objects.get(id_carrera=request.POST['id_carrera']),
             id_periodo_inicio=PeriodoAcademico.objects.get(id_periodo=request.POST['id_periodo_inicio']),
             estado=request.POST.get('estado', 'EN_EJECUCION'),
+            programa=request.POST.get('programa', '').strip() or None,
+            linea_vinculacion=request.POST.get('linea_vinculacion', '').strip() or None,
+            area_conocimiento=request.POST.get('area_conocimiento', '').strip() or None,
+            sub_area_conocimiento=request.POST.get('sub_area_conocimiento', '').strip() or None,
+            director_nombre=request.POST.get('director_nombre', '').strip() or None,
+            director_correo=request.POST.get('director_correo', '').strip() or None,
             provincia=request.POST.get('provincia', '').strip() or None,
             canton=request.POST.get('canton', '').strip() or None,
             parroquia=request.POST.get('parroquia', '').strip() or None,
             sector=request.POST.get('sector', '').strip() or None,
             descripcion=request.POST.get('descripcion', '').strip() or None,
             objetivo_general=request.POST.get('objetivo_general', '').strip() or None,
+            fecha_inicio=request.POST.get('fecha_inicio', '').strip() or None,
+            fecha_fin_planificada=request.POST.get('fecha_fin_planificada', '').strip() or None,
             ods=request.POST.get('ods', '').strip() or None,
-            linea_vinculacion=request.POST.get('linea_vinculacion', '').strip() or None,
             observaciones=request.POST.get('observaciones', '').strip() or None,
             latitud=lat,
             longitud=lng,
             creado_en=timezone.now(),
             actualizado_en=timezone.now(),
         )
+        # Multi-ubicación: guardar puntos y reflejar el principal en el proyecto
+        principal = _guardar_ubicaciones(request, proyecto)
+        if principal:
+            proyecto.latitud = principal.latitud
+            proyecto.longitud = principal.longitud
+            proyecto.provincia = principal.provincia if principal.provincia != 'N/D' else proyecto.provincia
+            proyecto.canton = principal.canton or proyecto.canton
+            proyecto.parroquia = principal.parroquia or proyecto.parroquia
+            proyecto.sector = principal.sector or proyecto.sector
+            proyecto.save(update_fields=['latitud', 'longitud', 'provincia', 'canton', 'parroquia', 'sector'])
         _guardar_fotos(request, proyecto)
         return JsonResponse(ProyectoSerializer(proyecto).data, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def api_proyecto_delete(request, id):
+    """Elimina un proyecto y todos sus registros dependientes."""
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method not in ('DELETE', 'POST'):
+        return JsonResponse({'error': 'method'}, status=405)
+    proyecto = get_object_or_404(Proyecto, id_proyecto=id)
+    try:
+        with transaction.atomic():
+            # Hijos que referencian al proyecto (se borran primero por las FK)
+            AnexoConvenio.objects.filter(id_convenio__id_proyecto=proyecto).delete()
+            Convenio.objects.filter(id_proyecto=proyecto).delete()
+            ProyectoUbicacion.objects.filter(id_proyecto=proyecto).delete()
+            FotoProyecto.objects.filter(id_proyecto=proyecto).delete()
+            DocumentoProyecto.objects.filter(id_proyecto=proyecto).delete()
+            ProyectoDocente.objects.filter(id_proyecto=proyecto).delete()
+            ProyectoEstudiante.objects.filter(id_proyecto=proyecto).delete()
+            ProyectoBeneficiario.objects.filter(id_proyecto=proyecto).delete()
+            InformeSemestral.objects.filter(id_proyecto=proyecto).delete()
+            EvaluacionImpacto.objects.filter(id_proyecto=proyecto).delete()
+            ActividadSemanal.objects.filter(id_proyecto=proyecto).delete()
+            proyecto.delete()
+        return JsonResponse({'ok': True})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -1874,6 +1968,17 @@ def api_proyecto_update(request, id):
         data['linea_vinculacion'] = proyecto.linea_vinculacion or ''
         data['observaciones'] = proyecto.observaciones or ''
         data['fotos'] = [{'id': f['id_foto'], 'url': '/media/' + f['ruta_foto'], 'titulo': f['titulo']} for f in fotos]
+        ubis = ProyectoUbicacion.objects.filter(id_proyecto=proyecto).order_by('-es_principal', 'id_ubicacion')
+        data['ubicaciones'] = [{
+            'nombre_lugar': x.nombre_lugar or '',
+            'provincia': x.provincia if x.provincia != 'N/D' else '',
+            'canton': x.canton or '',
+            'parroquia': x.parroquia or '',
+            'sector': x.sector or '',
+            'latitud': str(x.latitud) if x.latitud is not None else '',
+            'longitud': str(x.longitud) if x.longitud is not None else '',
+            'es_principal': x.es_principal,
+        } for x in ubis]
         return JsonResponse(data)
     if request.method == 'POST':
         try:
@@ -1905,6 +2010,17 @@ def api_proyecto_update(request, id):
             proyecto.longitud = lng or None
             proyecto.actualizado_en = timezone.now()
             proyecto.save()
+            # Multi-ubicación: reemplazar el conjunto de puntos y reflejar el principal
+            if request.POST.get('ubicaciones'):
+                principal = _guardar_ubicaciones(request, proyecto, reemplazar=True)
+                if principal:
+                    proyecto.latitud = principal.latitud
+                    proyecto.longitud = principal.longitud
+                    proyecto.provincia = principal.provincia if principal.provincia != 'N/D' else proyecto.provincia
+                    proyecto.canton = principal.canton or proyecto.canton
+                    proyecto.parroquia = principal.parroquia or proyecto.parroquia
+                    proyecto.sector = principal.sector or proyecto.sector
+                    proyecto.save(update_fields=['latitud', 'longitud', 'provincia', 'canton', 'parroquia', 'sector'])
             _guardar_fotos(request, proyecto)
             return JsonResponse(ProyectoSerializer(proyecto).data)
         except Exception as e:

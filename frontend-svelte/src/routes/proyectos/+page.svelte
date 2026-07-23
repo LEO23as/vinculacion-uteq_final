@@ -42,6 +42,31 @@
   }));
 
   function limpiar() { q = ''; filtEst = ''; filtFac = ''; }
+
+  // ── Eliminar proyecto ──────────────────────────────────
+  let porEliminar = $state(null);   // proyecto seleccionado para borrar
+  let eliminando  = $state(false);
+  let toast       = $state('');
+
+  async function confirmarEliminar() {
+    if (!porEliminar) return;
+    eliminando = true;
+    try {
+      const res = await fetch(`/api/proyectos/${porEliminar.id_proyecto}/eliminar/`, {
+        method: 'DELETE', credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) { toast = data.error || 'No se pudo eliminar'; }
+      else {
+        items = items.filter(p => p.id_proyecto !== porEliminar.id_proyecto);
+        toast = 'Proyecto eliminado';
+      }
+    } catch { toast = 'Error de conexión'; }
+    finally {
+      eliminando = false; porEliminar = null;
+      setTimeout(() => toast = '', 3500);
+    }
+  }
 </script>
 
 <svelte:head><title>Proyectos — SGV</title></svelte:head>
@@ -127,6 +152,9 @@
                 <a href="/proyectos/{p.id_proyecto}/editar" class="btn-accion editar" title="Editar">
                   <i class="bi bi-pencil"></i>
                 </a>
+                <button class="btn-accion eliminar" title="Eliminar" onclick={() => porEliminar = p}>
+                  <i class="bi bi-trash"></i>
+                </button>
               </td>
             </tr>
           {/each}
@@ -139,6 +167,26 @@
     <div class="total">{filtered.length} proyecto(s) encontrado(s)</div>
   {/if}
 </div>
+
+<!-- MODAL CONFIRMAR ELIMINAR -->
+{#if porEliminar}
+  <div class="del-overlay" onclick={() => porEliminar = null}>
+    <div class="del-box" onclick={(e) => e.stopPropagation()}>
+      <div class="del-ico"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <h3>Eliminar proyecto</h3>
+      <p>¿Seguro que deseas eliminar <strong>{porEliminar.nombre_corto || porEliminar.nombre}</strong>
+      ({porEliminar.codigo})? Se borrarán también sus ubicaciones, fotos, convenios y documentos. Esta acción no se puede deshacer.</p>
+      <div class="del-actions">
+        <button class="del-cancel" onclick={() => porEliminar = null} disabled={eliminando}>Cancelar</button>
+        <button class="del-confirm" onclick={confirmarEliminar} disabled={eliminando}>
+          {#if eliminando}<i class="bi bi-arrow-repeat spin"></i> Eliminando…{:else}<i class="bi bi-trash"></i> Sí, eliminar{/if}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if toast}<div class="toast-del">{toast}</div>{/if}
 
 <style>
 /* Solo estilos específicos de esta página */
@@ -158,4 +206,21 @@
 .est-detenido   { background:#fff0f0;color:#dc3545; }
 .est-finalizado { background:#f4f4f4;color:#a8a8a7; }
 .est-rechazado  { background:#f4f4f4;color:#6c757d; }
+
+/* Botón eliminar */
+.btn-accion.eliminar:hover { background:#fdecec;color:#dc3545;border-color:#f5c6c6; }
+
+/* Modal eliminar */
+.del-overlay { position:fixed;inset:0;background:rgba(13,25,16,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px; }
+.del-box { background:#fff;border-radius:16px;max-width:420px;width:100%;padding:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.del-ico { font-size:2.4rem;color:#dc3545;margin-bottom:8px; }
+.del-box h3 { font-size:1.15rem;font-weight:900;color:var(--negro);margin-bottom:8px; }
+.del-box p { font-size:.85rem;color:#555;line-height:1.5;margin-bottom:20px; }
+.del-actions { display:flex;gap:10px;justify-content:center; }
+.del-cancel { background:#fff;border:1.5px solid var(--borde);color:#555;font-weight:700;border-radius:10px;padding:9px 18px;font-size:.85rem; }
+.del-cancel:hover { border-color:#aaa; }
+.del-confirm { background:#dc3545;border:none;color:#fff;font-weight:800;border-radius:10px;padding:9px 20px;font-size:.85rem;display:flex;align-items:center;gap:7px; }
+.del-confirm:hover { background:#b02a37; }
+.del-confirm:disabled,.del-cancel:disabled { opacity:.6; }
+.toast-del { position:fixed;bottom:24px;right:24px;background:var(--negro);color:#fff;font-weight:700;font-size:.82rem;padding:11px 18px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:700; }
 </style>

@@ -343,6 +343,7 @@
   background:var(--verde);color:rgba(255,255,255,.8);
   font-size:.72rem;font-weight:600;padding:10px 24px;height:36px;
   display:flex;justify-content:space-between;align-items:center;
+  position:sticky;bottom:0;z-index:200;
 }
 
 @keyframes spin { to { transform:rotate(360deg); } }

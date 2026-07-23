@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
 from vinculacion import views
+from vinculacion import estructura
 
 
 def svelte_redirect(request):
@@ -41,6 +42,7 @@ urlpatterns = [
     path('api/entidades/<int:id>/',     views.api_entidad_detail,          name='api_entidad_detail'),
     path('api/proyectos/create/',       views.api_proyecto_create,         name='api_proyecto_create'),
     path('api/proyectos/<int:id>/edit/', views.api_proyecto_update,        name='api_proyecto_update'),
+    path('api/proyectos/<int:id>/eliminar/', views.api_proyecto_delete,     name='api_proyecto_delete'),
     path('api/proyectos/fotos/<int:id_foto>/', views.api_proyecto_eliminar_foto, name='api_foto_eliminar'),
     path('api/convenios/list/',         views.api_convenios_post,          name='api_convenios_post'),
     path('api/convenios/create/',       views.api_convenios_post,          name='api_convenio_create'),
@@ -48,6 +50,14 @@ urlpatterns = [
     path('api/convenios/<int:id>/anexos/', views.api_convenio_anexo_subir, name='api_convenio_anexo'),
     path('api/anexos/<int:id_anexo>/', views.api_anexo_eliminar,           name='api_anexo_eliminar'),
     path('api/reportes/stats/',         views.api_reportes_stats,          name='api_reportes_stats'),
+
+    # Versionado temporal de estructura académica
+    path('api/estructura/periodo/<int:id>/',          estructura.api_estructura_periodo,   name='api_estructura_periodo'),
+    path('api/estructura/comparar/<int:id>/',         estructura.api_estructura_comparar,  name='api_estructura_comparar'),
+    path('api/estructura/periodo/<int:id>/confirmar/', estructura.api_estructura_confirmar, name='api_estructura_confirmar'),
+    path('api/estructura/historial/',                 estructura.api_estructura_historial, name='api_estructura_historial'),
+    path('api/facultades-periodo/',                   estructura.api_facultades_periodo,   name='api_facultades_periodo'),
+    path('api/carreras-periodo/',                     estructura.api_carreras_periodo,     name='api_carreras_periodo'),
 
     # Cualquier otra ruta → mensaje amigable
     path('',        svelte_redirect),

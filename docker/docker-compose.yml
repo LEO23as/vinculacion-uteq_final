@@ -1,0 +1,35 @@
+# PostgreSQL local para el Sistema de Vinculación UTEQ
+# Réplica de la base de Supabase para desarrollo rápido (sin latencia de red).
+#
+# Uso:
+#   1) Generar el dump:   bash docker/dump-supabase.sh   (una sola vez)
+#   2) Levantar la BD:    docker compose -f docker/docker-compose.yml up -d
+#   3) Apuntar .env a local (ver docker/README.md)
+#
+# El dump en ./initdb/ se carga automáticamente la PRIMERA vez que arranca
+# el contenedor (cuando el volumen de datos está vacío).
+
+services:
+  db:
+    image: postgres:17
+    container_name: vinculacion_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    # Host 5433 -> contenedor 5432 (evita choque con un Postgres nativo en 5432)
+    ports:
+      - "5433:5432"
+    volumes:
+      - vinculacion_pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  vinculacion_pgdata:
+    name: vinculacion_pgdata

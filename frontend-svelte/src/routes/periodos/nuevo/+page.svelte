@@ -1,9 +1,14 @@
 ﻿<script>
   import { goto } from '$app/navigation';
+  import WizardEstructura from '$lib/WizardEstructura.svelte';
 
     let saving = $state(false);
   let error = $state('');
   let form = $state({ codigo:'', nombre:'', tipo:'SPA', fecha_inicio:'', fecha_fin:'', activo:true });
+
+  // Estado del wizard de reconciliación de estructura
+  let wizardAbierto = $state(false);
+  let periodoCreado = $state(null);   // { id_periodo, nombre } tras crear
 
   async function guardar() {
     error = '';
@@ -20,9 +25,22 @@
       });
       const data = await res.json();
       if (!res.ok) { error = data.error || 'Error al crear período'; return; }
-      goto('/periodos');
+      // En lugar de redirigir, abrir el wizard de reconciliación de estructura
+      periodoCreado = { id_periodo: data.id_periodo, nombre: data.nombre || form.nombre };
+      wizardAbierto = true;
     } catch { error = 'Error de conexión'; }
     finally { saving = false; }
+  }
+
+  function onEstructuraConfirmada() {
+    wizardAbierto = false;
+    goto('/periodos');
+  }
+
+  function onWizardCancelado() {
+    // El período ya fue creado; se puede reconciliar luego desde su detalle.
+    wizardAbierto = false;
+    goto('/periodos');
   }
 </script>
 
@@ -84,6 +102,15 @@
     </div>
   </div>
 </div>
+
+{#if wizardAbierto && periodoCreado}
+  <WizardEstructura
+    periodoId={periodoCreado.id_periodo}
+    periodoNombre={periodoCreado.nombre}
+    onConfirmado={onEstructuraConfirmada}
+    onCancelar={onWizardCancelado}
+  />
+{/if}
 
 <style>
 

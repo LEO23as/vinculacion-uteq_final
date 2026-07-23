@@ -181,6 +181,8 @@ class Proyecto(models.Model):
     objetivo_general = models.TextField(blank=True, null=True)
     objetivos_especificos = models.TextField(blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
+    director_nombre = models.CharField(max_length=200, blank=True, null=True)
+    director_correo = models.CharField(max_length=150, blank=True, null=True)
     presupuesto_planificado = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     estado = models.CharField(max_length=30)
     motivo_detencion = models.TextField(blank=True, null=True)
@@ -461,3 +463,78 @@ class AnexoConvenio(models.Model):
 
     def __str__(self):
         return self.nombre_archivo
+
+
+# ── VERSIONADO TEMPORAL DE ESTRUCTURA ACADÉMICA ─────────────────────────────
+# Un proyecto apunta a la IDENTIDAD canónica (Facultad / Carrera), pero su
+# nombre histórico se resuelve por el snapshot del período correspondiente.
+
+class FacultadPeriodo(models.Model):
+    """Snapshot inmutable del estado de una facultad en un período dado."""
+    id_facultad_periodo = models.AutoField(primary_key=True)
+    id_facultad = models.ForeignKey(Facultad, models.DO_NOTHING, db_column='id_facultad')
+    id_periodo = models.ForeignKey(PeriodoAcademico, models.DO_NOTHING, db_column='id_periodo')
+    codigo = models.CharField(max_length=15)
+    nombre = models.CharField(max_length=200)
+    nombre_corto = models.CharField(max_length=80, blank=True, null=True)
+    campus = models.CharField(max_length=80, blank=True, null=True)
+    vigente = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'facultad_periodo'
+        unique_together = (('id_facultad', 'id_periodo'),)
+
+    def __str__(self):
+        return f'{self.nombre} @ {self.id_periodo_id}'
+
+
+class CarreraPeriodo(models.Model):
+    """Snapshot inmutable del estado de una carrera en un período dado."""
+    id_carrera_periodo = models.AutoField(primary_key=True)
+    id_carrera = models.ForeignKey(Carrera, models.DO_NOTHING, db_column='id_carrera')
+    id_facultad_periodo = models.ForeignKey(FacultadPeriodo, models.DO_NOTHING, db_column='id_facultad_periodo')
+    id_periodo = models.ForeignKey(PeriodoAcademico, models.DO_NOTHING, db_column='id_periodo')
+    codigo = models.CharField(max_length=50, blank=True, null=True)
+    nombre = models.CharField(max_length=200)
+    horas_vinculacion = models.IntegerField(default=160)
+    vigente = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'carrera_periodo'
+        unique_together = (('id_carrera', 'id_periodo'),)
+
+    def __str__(self):
+        return f'{self.nombre} @ {self.id_periodo_id}'
+
+
+class EstructuraCambio(models.Model):
+    """Bitácora de auditoría de cada cambio estructural confirmado."""
+    TIPO_CAMBIO = [
+        ('CREADA', 'Creada'),
+        ('RENOMBRADA', 'Renombrada'),
+        ('DESACTIVADA', 'Desactivada'),
+        ('REACTIVADA', 'Reactivada'),
+        ('SIN_CAMBIO', 'Sin cambio'),
+    ]
+    ENTIDAD_TIPO = [('FACULTAD', 'Facultad'), ('CARRERA', 'Carrera')]
+
+    id_cambio = models.AutoField(primary_key=True)
+    id_periodo = models.ForeignKey(PeriodoAcademico, models.DO_NOTHING, db_column='id_periodo')
+    entidad_tipo = models.CharField(max_length=10, choices=ENTIDAD_TIPO)
+    entidad_id = models.IntegerField()
+    tipo_cambio = models.CharField(max_length=15, choices=TIPO_CAMBIO)
+    valor_anterior = models.TextField(blank=True, null=True)
+    valor_nuevo = models.TextField(blank=True, null=True)
+    id_usuario = models.ForeignKey(Usuario, models.SET_NULL, db_column='id_usuario', blank=True, null=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'estructura_cambio'
+
+    def __str__(self):
+        return f'{self.entidad_tipo} {self.entidad_id}: {self.tipo_cambio}'
