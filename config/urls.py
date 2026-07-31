@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/carreras-por-facultad/', views.carrera_por_facultad, name='carrera_por_facultad'),
     path('api/proyectos/<int:id>/detalle/', views.api_proyecto_detalle, name='api_proyecto_detalle'),
     path('api/capa-pobreza/',        views.api_capa_pobreza,      name='api_capa_pobreza'),
+    path('api/inec-sectores/',       views.api_inec_sectores,     name='api_inec_sectores'),
 
     # CRUD
     path('api/periodos/create/',        views.api_periodos_post,          name='api_periodos_post'),
@@ -44,6 +45,9 @@ urlpatterns = [
     path('api/proyectos/<int:id>/edit/', views.api_proyecto_update,        name='api_proyecto_update'),
     path('api/proyectos/<int:id>/eliminar/', views.api_proyecto_delete,     name='api_proyecto_delete'),
     path('api/proyectos/fotos/<int:id_foto>/', views.api_proyecto_eliminar_foto, name='api_foto_eliminar'),
+    path('api/proyectos/<int:id>/documentos/',        views.api_proyecto_documentos, name='api_proyecto_documentos'),
+    path('api/proyectos/<int:id>/documentos/subir/',  views.api_documento_subir,     name='api_documento_subir'),
+    path('api/documentos/<int:id_documento>/',        views.api_documento_eliminar,  name='api_documento_eliminar'),
     path('api/convenios/list/',         views.api_convenios_post,          name='api_convenios_post'),
     path('api/convenios/create/',       views.api_convenios_post,          name='api_convenio_create'),
     path('api/convenios/<int:id>/',     views.api_convenio_detail,         name='api_convenio_detail'),

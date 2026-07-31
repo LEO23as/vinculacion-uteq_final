@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { fetchAPI } from '$lib/stores';
+  import { toast } from '$lib/toast';
 
   let items     = $state([]);
   let facultades = $state([]);
@@ -46,26 +47,23 @@
   // ── Eliminar proyecto ──────────────────────────────────
   let porEliminar = $state(null);   // proyecto seleccionado para borrar
   let eliminando  = $state(false);
-  let toast       = $state('');
 
   async function confirmarEliminar() {
     if (!porEliminar) return;
+    const nombre = porEliminar.nombre_corto || porEliminar.nombre;
     eliminando = true;
     try {
       const res = await fetch(`/api/proyectos/${porEliminar.id_proyecto}/eliminar/`, {
         method: 'DELETE', credentials: 'include',
       });
       const data = await res.json();
-      if (!res.ok) { toast = data.error || 'No se pudo eliminar'; }
+      if (!res.ok) { toast.error(data.error || 'No se pudo eliminar'); }
       else {
         items = items.filter(p => p.id_proyecto !== porEliminar.id_proyecto);
-        toast = 'Proyecto eliminado';
+        toast.success(`Proyecto "${nombre}" eliminado`);
       }
-    } catch { toast = 'Error de conexión'; }
-    finally {
-      eliminando = false; porEliminar = null;
-      setTimeout(() => toast = '', 3500);
-    }
+    } catch { toast.error('Error de conexión'); }
+    finally { eliminando = false; porEliminar = null; }
   }
 </script>
 
@@ -185,8 +183,6 @@
     </div>
   </div>
 {/if}
-
-{#if toast}<div class="toast-del">{toast}</div>{/if}
 
 <style>
 /* Solo estilos específicos de esta página */

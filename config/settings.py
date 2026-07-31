@@ -70,7 +70,10 @@ DATABASES = {
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', default='5432'),
+        'PORT': config('DB_PORT', default='5433'),
+        'OPTIONS': {
+            'options': config('DB_OPTIONS', default='-c search_path=sga_principal,public'),
+        },
     }
 }
 

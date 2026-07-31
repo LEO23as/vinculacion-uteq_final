@@ -5,6 +5,7 @@
   import { page } from '$app/stores';
   import { get } from 'svelte/store';
   import { user, checkAuth, logout, capaNBIActiva } from '$lib/stores';
+  import Toasts from '$lib/Toasts.svelte';
 
   let { children } = $props();
 
@@ -66,6 +67,8 @@
   let isDashboard = $derived($page.url.pathname === '/dashboard');
   let isMapa      = $derived($page.url.pathname.startsWith('/mapa'));
 </script>
+
+<Toasts />
 
 {#if PUBLIC.includes($page.url.pathname)}
   {#if authChecked}

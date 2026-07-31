@@ -183,6 +183,8 @@ class Proyecto(models.Model):
     descripcion = models.TextField(blank=True, null=True)
     director_nombre = models.CharField(max_length=200, blank=True, null=True)
     director_correo = models.CharField(max_length=150, blank=True, null=True)
+    fecha_aprobacion = models.DateField(blank=True, null=True)
+    resolucion_aprobacion = models.CharField(max_length=300, blank=True, null=True)
     presupuesto_planificado = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     estado = models.CharField(max_length=30)
     motivo_detencion = models.TextField(blank=True, null=True)

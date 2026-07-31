@@ -65,50 +65,71 @@
     return '#fed976';
   }
 
-  async function cargarSectoresViewport() {
+  // Normaliza nombre: minúsculas, sin acentos, sin espacios extra
+  function norm(s) {
+    return (s || '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().trim();
+  }
+
+  // Índice NBI por "provincia|canton" normalizado
+  let nbiByName = null;
+  function buildNbiByName() {
+    if (nbiByName || !nbiByCanton) return;
+    nbiByName = {};
+    for (const dpa in nbiByCanton) {
+      const e = nbiByCanton[dpa];
+      nbiByName[`${norm(e.provincia)}|${norm(e.canton)}`] = { ...e, dpa };
+    }
+  }
+
+  // Cache del geojson de cantones
+  let cantonesGeo = null;
+
+  async function cargarCantonesNBI() {
     const L = window._L;
     if (!map || !nbiByCanton) return;
-    const zoom = map.getZoom();
-    if (zoom < 11) {
-      nbiAviso = 'Acércate más (zoom ≥ 11) para ver la capa NBI por sector.';
-      return;
-    }
-    nbiAviso = 'Cargando sectores INEC…';
-    const b = map.getBounds();
-    const geom = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-    const url = `https://idgn.ecuadorencifras.gob.ec/server/rest/services/WMS_MGN2025/MapServer/1/query?geometry=${geom}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=sec,parroquia&returnGeometry=true&f=geojson`;
+    buildNbiByName();
+    nbiAviso = 'Cargando capa NBI…';
     try {
-      const res = await fetch(url);
-      const gj  = await res.json();
+      if (!cantonesGeo) {
+        const res = await fetch('/geo/cantones_ec.geojson');
+        if (!res.ok) throw new Error(`HTTP ${res.status} al leer /geo/cantones_ec.geojson`);
+        cantonesGeo = await res.json();
+      }
       if (nbiLayer) { map.removeLayer(nbiLayer); nbiLayer = null; }
-      nbiLayer = L.geoJSON(gj, {
+      let matched = 0;
+      nbiLayer = L.geoJSON(cantonesGeo, {
         style: (feature) => {
-          const sec   = feature.properties?.sec || '';
-          const dpa   = sec.substring(0, 4);
-          const entry = nbiByCanton[dpa];
-          const pct   = entry?.nbi_pct ?? null;
+          const p = feature.properties || {};
+          const key = `${norm(p.province)}|${norm(p.canton)}`;
+          const entry = nbiByName[key];
+          const pct = entry?.nbi_pct ?? null;
+          if (pct !== null) matched++;
           return {
-            weight: 0.3, opacity: 0.6, color: '#555',
-            fillOpacity: pct !== null ? 0.65 : 0,
-            fillColor: pct !== null ? getNBIColor(pct) : 'transparent',
+            weight: 0.6, opacity: 0.8, color: '#333',
+            fillOpacity: pct !== null ? 0.65 : 0.05,
+            fillColor: pct !== null ? getNBIColor(pct) : '#ccc',
           };
         },
         onEachFeature: (feature, layer) => {
-          const sec   = feature.properties?.sec || '';
-          const parr  = feature.properties?.parroquia || '';
-          const dpa   = sec.substring(0, 4);
-          const entry = nbiByCanton[dpa];
-          if (entry) {
-            layer.bindTooltip(
-              `<b>Sector:</b> ${sec}<br><b>Cantón:</b> ${entry.canton}<br><b>Provincia:</b> ${entry.provincia}<br><b>NBI 2022:</b> ${entry.nbi_pct}%`,
-              { sticky: true, direction: 'top' }
-            );
-          }
+          const p = feature.properties || {};
+          const key = `${norm(p.province)}|${norm(p.canton)}`;
+          const entry = nbiByName[key];
+          const nombre = p.canton || '';
+          const prov = p.province || '';
+          const pct = entry?.nbi_pct;
+          layer.bindTooltip(
+            `<b>Cantón:</b> ${nombre}<br><b>Provincia:</b> ${prov}<br>` +
+            (pct != null ? `<b>NBI 2022:</b> ${pct}%` : '<i>Sin dato NBI</i>'),
+            { sticky: true, direction: 'top' }
+          );
         },
       }).addTo(map);
-      nbiAviso = `${gj.features?.length ?? 0} sectores cargados (NBI Censo 2022)`;
-    } catch {
-      nbiAviso = 'Error al cargar sectores INEC.';
+      nbiAviso = `${matched} cantones con NBI (Censo 2022)`;
+    } catch (e) {
+      console.error('[NBI]', e);
+      nbiAviso = `Error al cargar capa NBI: ${e.message || e}`;
     }
   }
 
@@ -138,11 +159,9 @@
       if (!nbiByCanton) {
         nbiByCanton = await fetchAPI('/api/capa-pobreza/');
       }
-      await cargarSectoresViewport();
+      await cargarCantonesNBI();
       agregarLeyendaNBI();
-      map.on('moveend', cargarSectoresViewport);
     } else {
-      map.off('moveend', cargarSectoresViewport);
       if (nbiLayer)   { map.removeLayer(nbiLayer); nbiLayer = null; }
       if (nbiLeyenda) { map.removeControl(nbiLeyenda); nbiLeyenda = null; }
       nbiAviso = '';

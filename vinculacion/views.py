@@ -483,6 +483,20 @@ def proyectos_lista(request):
     })
 
 
+def _error_amigable(e):
+    """Traduce errores técnicos de la BD a mensajes claros en español."""
+    s = str(e)
+    if 'chk_fechas_proyecto' in s:
+        return 'La fecha de finalización debe ser posterior a la fecha de inicio.'
+    if 'proyecto_estado_check' in s:
+        return 'El estado del proyecto no es válido.'
+    if 'proyecto_alcance_check' in s:
+        return 'El alcance del proyecto no es válido.'
+    if 'duplicate key' in s and 'codigo' in s:
+        return 'Ya existe un proyecto con ese código.'
+    return s
+
+
 def _guardar_fotos(request, proyecto):
     fotos = request.FILES.getlist('fotos')
     for foto in fotos:
@@ -956,6 +970,50 @@ def api_capa_pobreza(request):
         "2403":{"canton":"Salinas","provincia":"Santa Elena","nbi_pct":43.5},
     }
     return JsonResponse(NBI_DATA)
+
+
+def api_inec_sectores(request):
+    """
+    Proxy a la capa de sectores censales del INEC (ArcGIS/MapServer).
+    Evita CORS y da errores manejables al frontend.
+    Query params esperados: bbox=west,south,east,north  (EPSG:4326)
+    """
+    import urllib.parse
+    import urllib.request
+    import ssl
+
+    bbox = request.GET.get('bbox', '').strip()
+    if not bbox or bbox.count(',') != 3:
+        return JsonResponse({'error': 'bbox requerido: west,south,east,north'}, status=400)
+
+    params = {
+        'geometry': bbox,
+        'geometryType': 'esriGeometryEnvelope',
+        'inSR': '4326',
+        'spatialRel': 'esriSpatialRelIntersects',
+        'outFields': 'sec,parroquia',
+        'returnGeometry': 'true',
+        'f': 'geojson',
+    }
+    url = (
+        'https://idgn.ecuadorencifras.gob.ec/server/rest/services/'
+        'WMS_MGN2025/MapServer/1/query?' + urllib.parse.urlencode(params)
+    )
+
+    try:
+        ctx = ssl.create_default_context()
+        # Algunos servidores oficiales tienen la cadena SSL incompleta.
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(url, headers={'User-Agent': 'UTEQ-Vinculacion/1.0'})
+        with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
+            data = resp.read()
+        return JsonResponse(json.loads(data.decode('utf-8')), safe=False)
+    except Exception as e:
+        return JsonResponse(
+            {'error': 'No se pudo consultar el servicio INEC', 'detail': str(e)},
+            status=502,
+        )
 
 
 def api_mapa_proyectos(request):
@@ -1707,7 +1765,7 @@ def api_periodos_post(request):
         )
         return JsonResponse(PeriodoSerializer(periodo).data, status=201)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': _error_amigable(e)}, status=400)
 
 
 # ── FACULTADES CRUD ──────────────────────────────────────────────────
@@ -1758,7 +1816,7 @@ def api_carreras_post(request):
         )
         return JsonResponse(CarreraSerializer(carrera).data, status=201)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': _error_amigable(e)}, status=400)
 
 
 @csrf_exempt
@@ -1828,7 +1886,7 @@ def api_entidades_post(request):
         )
         return JsonResponse(EntidadSerializer(entidad).data, status=201)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': _error_amigable(e)}, status=400)
 
 
 @csrf_exempt
@@ -1918,7 +1976,110 @@ def api_proyecto_create(request):
         _guardar_fotos(request, proyecto)
         return JsonResponse(ProyectoSerializer(proyecto).data, status=201)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': _error_amigable(e)}, status=400)
+
+
+from vinculacion.models import TipoDocumento
+
+
+@csrf_exempt
+def api_documento_subir(request, id):
+    """
+    Sube un documento del portafolio a un proyecto (por código de tipo, ej DOC_01).
+    Opcional: si vienen datos de aprobación (paso 2), actualiza el proyecto.
+    """
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method'}, status=405)
+    proyecto = get_object_or_404(Proyecto, id_proyecto=id)
+    codigo_tipo = request.POST.get('codigo_tipo', '').strip()
+    tipo = TipoDocumento.objects.filter(codigo=codigo_tipo).first()
+    if not tipo:
+        return JsonResponse({'error': f'Tipo de documento {codigo_tipo} no existe'}, status=400)
+
+    archivo = request.FILES.get('archivo')
+    creado = None
+    if archivo:
+        carpeta = f'proyectos/{proyecto.id_proyecto}/documentos/'
+        ruta_completa = os.path.join(settings.MEDIA_ROOT, carpeta)
+        os.makedirs(ruta_completa, exist_ok=True)
+        nombre_archivo = f'{codigo_tipo}_{archivo.name}'
+        with open(os.path.join(ruta_completa, nombre_archivo), 'wb+') as f:
+            for chunk in archivo.chunks():
+                f.write(chunk)
+        ext = (archivo.name.rsplit('.', 1)[-1] if '.' in archivo.name else '')[:10]
+        creado = DocumentoProyecto.objects.create(
+            id_proyecto=proyecto,
+            id_tipo_doc=tipo,
+            id_periodo=proyecto.id_periodo_inicio,
+            nombre_archivo=archivo.name,
+            ruta_archivo=f'{carpeta}{nombre_archivo}',
+            tamanio_kb=int(archivo.size / 1024),
+            extension=ext,
+            descripcion=request.POST.get('descripcion', '').strip() or None,
+            subido_por_id=_require_auth(request),
+            subido_en=timezone.now(),
+        )
+
+    # Datos de aprobación (solo para DOC_01)
+    if codigo_tipo == 'DOC_01':
+        fa = request.POST.get('fecha_aprobacion', '').strip()
+        ra = request.POST.get('resolucion_aprobacion', '').strip()
+        cambios = False
+        if fa: proyecto.fecha_aprobacion = fa; cambios = True
+        if ra: proyecto.resolucion_aprobacion = ra; cambios = True
+        if cambios:
+            proyecto.actualizado_en = timezone.now()
+            proyecto.save(update_fields=['fecha_aprobacion', 'resolucion_aprobacion', 'actualizado_en'])
+
+    return JsonResponse({
+        'ok': True,
+        'documento': None if not creado else {
+            'id': creado.id_documento, 'nombre': creado.nombre_archivo,
+            'url': '/media/' + creado.ruta_archivo, 'tipo': tipo.nombre,
+        }
+    }, status=201)
+
+
+@csrf_exempt
+def api_proyecto_documentos(request, id):
+    """Lista los documentos del portafolio subidos a un proyecto."""
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    docs = (DocumentoProyecto.objects
+            .filter(id_proyecto_id=id)
+            .select_related('id_tipo_doc')
+            .order_by('id_tipo_doc__numero_carpeta', 'subido_en'))
+    data = [{
+        'id': d.id_documento,
+        'codigo_tipo': d.id_tipo_doc.codigo,
+        'tipo': d.id_tipo_doc.nombre,
+        'numero_carpeta': d.id_tipo_doc.numero_carpeta,
+        'nombre': d.nombre_archivo,
+        'url': '/media/' + d.ruta_archivo,
+        'tamanio_kb': d.tamanio_kb,
+        'subido_en': d.subido_en.isoformat() if d.subido_en else None,
+    } for d in docs]
+    return JsonResponse(data, safe=False)
+
+
+@csrf_exempt
+def api_documento_eliminar(request, id_documento):
+    """Elimina un documento del portafolio."""
+    if not _require_auth(request):
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    if request.method != 'DELETE':
+        return JsonResponse({'error': 'method'}, status=405)
+    doc = get_object_or_404(DocumentoProyecto, id_documento=id_documento)
+    try:
+        ruta = os.path.join(settings.MEDIA_ROOT, doc.ruta_archivo)
+        if os.path.exists(ruta):
+            os.remove(ruta)
+    except Exception:
+        pass
+    doc.delete()
+    return JsonResponse({'ok': True})
 
 
 @csrf_exempt
@@ -1946,7 +2107,7 @@ def api_proyecto_delete(request, id):
             proyecto.delete()
         return JsonResponse({'ok': True})
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': _error_amigable(e)}, status=400)
 
 
 @csrf_exempt
@@ -1967,6 +2128,15 @@ def api_proyecto_update(request, id):
         data['ods'] = proyecto.ods or ''
         data['linea_vinculacion'] = proyecto.linea_vinculacion or ''
         data['observaciones'] = proyecto.observaciones or ''
+        data['director_nombre'] = proyecto.director_nombre or ''
+        data['director_correo'] = proyecto.director_correo or ''
+        data['area_conocimiento'] = proyecto.area_conocimiento or ''
+        data['sub_area_conocimiento'] = proyecto.sub_area_conocimiento or ''
+        data['programa'] = proyecto.programa or ''
+        data['fecha_inicio'] = str(proyecto.fecha_inicio) if proyecto.fecha_inicio else ''
+        data['fecha_fin_planificada'] = str(proyecto.fecha_fin_planificada) if proyecto.fecha_fin_planificada else ''
+        data['fecha_aprobacion'] = str(proyecto.fecha_aprobacion) if proyecto.fecha_aprobacion else ''
+        data['resolucion_aprobacion'] = proyecto.resolucion_aprobacion or ''
         data['fotos'] = [{'id': f['id_foto'], 'url': '/media/' + f['ruta_foto'], 'titulo': f['titulo']} for f in fotos]
         ubis = ProyectoUbicacion.objects.filter(id_proyecto=proyecto).order_by('-es_principal', 'id_ubicacion')
         data['ubicaciones'] = [{
@@ -1990,11 +2160,17 @@ def api_proyecto_update(request, id):
                 return JsonResponse({'error': f'Ya existe otro proyecto con el código {codigo}'}, status=400)
             proyecto.codigo = codigo
             proyecto.nombre = nombre
-            proyecto.nombre_corto = request.POST.get('nombre_corto', '').strip() or None
+            proyecto.nombre_corto = request.POST.get('nombre_corto', '').strip() or (nombre[:120] if nombre else None)
             proyecto.id_facultad = Facultad.objects.get(id_facultad=request.POST['id_facultad'])
             proyecto.id_carrera = Carrera.objects.get(id_carrera=request.POST['id_carrera'])
             proyecto.id_periodo_inicio = PeriodoAcademico.objects.get(id_periodo=request.POST['id_periodo_inicio'])
             proyecto.estado = request.POST.get('estado', proyecto.estado)
+            proyecto.director_nombre = request.POST.get('director_nombre', '').strip() or None
+            proyecto.director_correo = request.POST.get('director_correo', '').strip() or None
+            proyecto.linea_vinculacion = request.POST.get('linea_vinculacion', '').strip() or None
+            proyecto.programa = request.POST.get('programa', '').strip() or None
+            proyecto.area_conocimiento = request.POST.get('area_conocimiento', '').strip() or None
+            proyecto.sub_area_conocimiento = request.POST.get('sub_area_conocimiento', '').strip() or None
             proyecto.provincia = request.POST.get('provincia', '').strip() or None
             proyecto.canton = request.POST.get('canton', '').strip() or None
             proyecto.parroquia = request.POST.get('parroquia', '').strip() or None
@@ -2002,7 +2178,8 @@ def api_proyecto_update(request, id):
             proyecto.descripcion = request.POST.get('descripcion', '').strip() or None
             proyecto.objetivo_general = request.POST.get('objetivo_general', '').strip() or None
             proyecto.ods = request.POST.get('ods', '').strip() or None
-            proyecto.linea_vinculacion = request.POST.get('linea_vinculacion', '').strip() or None
+            proyecto.fecha_inicio = request.POST.get('fecha_inicio', '').strip() or None
+            proyecto.fecha_fin_planificada = request.POST.get('fecha_fin_planificada', '').strip() or None
             proyecto.observaciones = request.POST.get('observaciones', '').strip() or None
             lat = request.POST.get('latitud', '').strip()
             lng = request.POST.get('longitud', '').strip()
@@ -2024,7 +2201,7 @@ def api_proyecto_update(request, id):
             _guardar_fotos(request, proyecto)
             return JsonResponse(ProyectoSerializer(proyecto).data)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': _error_amigable(e)}, status=400)
     return JsonResponse({'error': 'method'}, status=405)
 
 
@@ -2102,7 +2279,7 @@ def api_convenios_post(request):
         )
         return JsonResponse({'id_convenio': convenio.pk, 'ok': True}, status=201)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({'error': _error_amigable(e)}, status=400)
 
 
 @csrf_exempt

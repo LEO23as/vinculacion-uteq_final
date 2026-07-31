@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { fetchAPI } from '$lib/stores';
+  import { toast } from '$lib/toast';
   import MapaSelector from '$lib/MapaSelector.svelte';
   import OdsPicker from '$lib/OdsPicker.svelte';
 
@@ -71,14 +72,61 @@
     previews = previews.filter((_, i) => i !== idx);
   }
 
+  // ── Pasos 2 y 3: documentos del portafolio ──────────────────────
+  let resolForm = $state({ resolucion_aprobacion:'', fecha_aprobacion:'' });
+  let resolFile = $state(null);
+  let planFile  = $state(null);
+  let subiendo  = $state(false);
+
+  function pickResol(e) { resolFile = e.target.files[0] || null; }
+  function pickPlan(e)  { planFile  = e.target.files[0] || null; }
+
+  async function subirDoc(codigo_tipo, file, extra = {}) {
+    const fd = new FormData();
+    fd.append('codigo_tipo', codigo_tipo);
+    if (file) fd.append('archivo', file);
+    Object.entries(extra).forEach(([k, v]) => { if (v) fd.append(k, v); });
+    const res = await fetch(`/api/proyectos/${proyectoId}/documentos/subir/`, {
+      method:'POST', credentials:'include', body: fd,
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Error al subir'); }
+    return res.json();
+  }
+
+  async function guardarPaso2() {
+    error = '';
+    if (!resolFile && !resolForm.resolucion_aprobacion && !resolForm.fecha_aprobacion) { paso = 3; return; }
+    subiendo = true;
+    try {
+      await subirDoc('DOC_01', resolFile, {
+        resolucion_aprobacion: resolForm.resolucion_aprobacion,
+        fecha_aprobacion: resolForm.fecha_aprobacion,
+      });
+      toast.success('Resolución de aprobación guardada');
+      paso = 3;
+    } catch (e) { error = e.message; toast.error(e.message); } finally { subiendo = false; }
+  }
+
+  async function guardarPaso3() {
+    error = ''; subiendo = true;
+    try {
+      if (planFile) { await subirDoc('DOC_02', planFile); toast.success('Planificación guardada'); }
+      paso = 4;
+    } catch (e) { error = e.message; toast.error(e.message); } finally { subiendo = false; }
+  }
+
   // ── Paso 1: crear el proyecto ───────────────────────────────────
   async function guardarPaso1() {
     error = '';
     if (!form.codigo || !form.nombre || !form.id_facultad || !form.id_carrera || !form.id_periodo_inicio) {
       error = 'Código, título, período, facultad y carrera son obligatorios.';
+      toast.error(error);
       return;
     }
-    if (!ubicaciones.length) { error = 'Agrega al menos una ubicación en el mapa.'; return; }
+    if (!ubicaciones.length) { error = 'Agrega al menos una ubicación en el mapa.'; toast.error(error); return; }
+    if (form.fecha_inicio && form.fecha_fin_planificada && form.fecha_fin_planificada <= form.fecha_inicio) {
+      error = 'La fecha de finalización debe ser posterior a la de inicio.'; toast.error(error); return;
+    }
     const principal = ubicaciones.find(u => u.es_principal) || ubicaciones[0];
     form.latitud = principal.latitud; form.longitud = principal.longitud;
     form.provincia = principal.provincia || ''; form.canton = principal.canton || '';
@@ -93,10 +141,11 @@
       fotos.forEach(f => fd.append('fotos', f));
       const res = await fetch('/api/proyectos/create/', { method:'POST', credentials:'include', body: fd });
       const data = await res.json();
-      if (!res.ok) { error = data.error || 'Error al crear proyecto'; return; }
+      if (!res.ok) { error = data.error || 'Error al crear proyecto'; toast.error(error); return; }
       proyectoId = data.id_proyecto;
+      toast.success('Proyecto creado. Ahora sube los documentos.');
       paso = 2;
-    } catch { error = 'Error de conexión'; }
+    } catch { error = 'Error de conexión'; toast.error(error); }
     finally { saving = false; }
   }
 
@@ -238,25 +287,63 @@
         </button>
       </div>
 
-    <!-- ══════════ PASOS 2-4: en construcción ══════════ -->
+    <!-- ══════════ PASO 2: RESOLUCIÓN DE APROBACIÓN ══════════ -->
+    {:else if paso === 2}
+      <h2 class="form-title"><i class="bi bi-file-earmark-check"></i> Resolución de aprobación</h2>
+      <p class="paso-desc">Sube el PDF de la resolución con la que el Consejo Directivo aprobó el proyecto (DOC_01). Los datos clave se mostrarán en el detalle y el mapa.</p>
+
+      <div class="sec">
+        <div class="grid-row">
+          <div class="field col-8"><label>Referencia de la resolución</label><input bind:value={resolForm.resolucion_aprobacion} placeholder="Consejo Directivo FCA — Sesión ordinaria 04/03/2021, Resolución OCTAVA" /></div>
+          <div class="field col-4"><label>Fecha de aprobación</label><input type="date" bind:value={resolForm.fecha_aprobacion} /></div>
+        </div>
+        <label class="drop-zone doc">
+          <input type="file" accept="application/pdf,image/*" onchange={pickResol} />
+          <i class="bi bi-file-earmark-arrow-up"></i>
+          <span>{resolFile ? resolFile.name : 'Clic para subir el PDF de la resolución'}</span>
+          <small>PDF o imagen</small>
+        </label>
+      </div>
+
+      <div class="form-actions between">
+        <button class="btn-cancel" onclick={() => paso = 3}>Omitir por ahora</button>
+        <button class="btn-save" onclick={guardarPaso2} disabled={subiendo}>
+          {#if subiendo}<i class="bi bi-arrow-repeat spin"></i> Subiendo…{:else}Guardar y continuar <i class="bi bi-arrow-right"></i>{/if}
+        </button>
+      </div>
+
+    <!-- ══════════ PASO 3: PLANIFICACIÓN ══════════ -->
+    {:else if paso === 3}
+      <h2 class="form-title"><i class="bi bi-diagram-3"></i> Planificación de actividades</h2>
+      <p class="paso-desc">Sube el PDF de la planificación de actividades del proyecto (DOC_02).</p>
+
+      <div class="sec">
+        <label class="drop-zone doc">
+          <input type="file" accept="application/pdf,image/*" onchange={pickPlan} />
+          <i class="bi bi-file-earmark-arrow-up"></i>
+          <span>{planFile ? planFile.name : 'Clic para subir el PDF de planificación'}</span>
+          <small>PDF o imagen</small>
+        </label>
+      </div>
+
+      <div class="form-actions between">
+        <button class="btn-cancel" onclick={() => paso = 4}>Omitir por ahora</button>
+        <button class="btn-save" onclick={guardarPaso3} disabled={subiendo}>
+          {#if subiendo}<i class="bi bi-arrow-repeat spin"></i> Subiendo…{:else}Guardar y continuar <i class="bi bi-arrow-right"></i>{/if}
+        </button>
+      </div>
+
+    <!-- ══════════ PASO 4: CONVENIOS (próximo) ══════════ -->
     {:else}
       <div class="paso-pendiente">
         <div class="pp-icon"><i class="bi bi-check-circle-fill"></i></div>
-        <h2 class="form-title">Proyecto creado correctamente</h2>
+        <h2 class="form-title">¡Casi listo!</h2>
         <p class="pp-sub">
-          El paso <strong>{paso}</strong> ({PASOS[paso-1].label}) se está construyendo.
-          Por ahora puedes finalizar y ver el proyecto; los pasos de documentos se habilitarán en la siguiente entrega.
+          El paso de <strong>Convenios</strong> (buscar o crear la entidad cooperante y subir el PDF del convenio)
+          se habilita en la próxima entrega. Ya puedes finalizar y ver el proyecto con sus documentos.
         </p>
-        <div class="pp-steps">
-          {#each PASOS.slice(1) as p}
-            <div class="pp-step">
-              <i class="bi {p.icon}"></i>
-              <span>{p.label}</span>
-              <span class="pp-tag">próximo</span>
-            </div>
-          {/each}
-        </div>
         <div class="form-actions center">
+          <button class="btn-cancel" onclick={() => paso = 3}><i class="bi bi-arrow-left"></i> Atrás</button>
           <button class="btn-save" onclick={finalizar}>Ver el proyecto <i class="bi bi-arrow-right"></i></button>
         </div>
       </div>
@@ -282,6 +369,10 @@
 
   .btn-save i { font-size:.9rem; }
   .form-actions.center { justify-content:center; }
+  .form-actions.between { justify-content:space-between; }
+
+  .paso-desc { font-size:.86rem; color:#666; line-height:1.5; margin:-4px 0 16px; }
+  .drop-zone.doc { margin-top:12px; }
 
   /* Pasos pendientes */
   .paso-pendiente { text-align:center; padding:20px 10px 10px; }
