@@ -96,6 +96,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Permitir iframes desde el mismo origen (necesario para el visor de PDFs
+# embebido en el modal del mapa: SvelteKit en :5173 → /media/ proxy → Django)
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'

@@ -849,8 +849,7 @@ def api_mapa_proyectos(request):
 
     features = []
     for p in qs:
-        primera_foto = p.fotoproyecto_set.first()
-        foto_url = '/media/' + str(primera_foto.ruta_foto) if primera_foto else None
+        fotos = ['/media/' + str(f.ruta_foto) for f in p.fotoproyecto_set.all()]
         features.append({
             'type': 'Feature',
             'geometry': {
@@ -858,22 +857,43 @@ def api_mapa_proyectos(request):
                 'coordinates': [float(p.longitud), float(p.latitud)],
             },
             'properties': {
-                'id':           p.id_proyecto,
-                'codigo':       p.codigo,
-                'nombre':       p.nombre,
-                'nombre_corto': p.nombre_corto or p.nombre[:60],
-                'facultad':     p.id_facultad.nombre,
-                'carrera':      p.id_carrera.nombre,
-                'periodo':      p.id_periodo_inicio.nombre,
-                'estado':       p.estado,
-                'color':        COLORES.get(p.estado, '#1b7505'),
-                'provincia':    p.provincia or '',
-                'canton':       p.canton or '',
-                'parroquia':    p.parroquia or '',
-                'fecha_inicio': str(p.fecha_inicio) if p.fecha_inicio else '',
-                'ods':          p.ods or '',
-                'foto_url':     foto_url,
-                'url_editar':   f'/proyectos/{p.id_proyecto}/editar/',
+                'id':                       p.id_proyecto,
+                'codigo':                   p.codigo,
+                'nombre':                   p.nombre,
+                'nombre_corto':             p.nombre_corto or p.nombre[:60],
+                'facultad':                 p.id_facultad.nombre,
+                'carrera':                  p.id_carrera.nombre,
+                'periodo':                  p.id_periodo_inicio.nombre,
+                'periodo_fin':              p.id_periodo_fin.nombre if p.id_periodo_fin else '',
+                'estado':                   p.estado,
+                'color':                    COLORES.get(p.estado, '#1b7505'),
+                'programa':                 p.programa or '',
+                'linea_vinculacion':        p.linea_vinculacion or '',
+                'area_conocimiento':        p.area_conocimiento or '',
+                'sub_area_conocimiento':    p.sub_area_conocimiento or '',
+                'alcance':                  p.alcance or '',
+                'objetivo_general':         p.objetivo_general or '',
+                'objetivos_especificos':    p.objetivos_especificos or '',
+                'descripcion':              p.descripcion or '',
+                'director_nombre':          p.director_nombre or '',
+                'director_correo':          p.director_correo or '',
+                'resolucion_aprobacion':    p.resolucion_aprobacion or '',
+                'fecha_aprobacion':         str(p.fecha_aprobacion) if p.fecha_aprobacion else '',
+                'presupuesto_planificado':  float(p.presupuesto_planificado) if p.presupuesto_planificado else None,
+                'provincia':                p.provincia or '',
+                'canton':                   p.canton or '',
+                'parroquia':                p.parroquia or '',
+                'sector':                   p.sector or '',
+                'fecha_inicio':             str(p.fecha_inicio) if p.fecha_inicio else '',
+                'fecha_fin_planificada':    str(p.fecha_fin_planificada) if p.fecha_fin_planificada else '',
+                'fecha_fin_real':           str(p.fecha_fin_real) if p.fecha_fin_real else '',
+                'ods':                      p.ods or '',
+                'observaciones':            p.observaciones or '',
+                'motivo_detencion':         p.motivo_detencion or '',
+                'fotos':                    fotos,
+                'foto_url':                 fotos[0] if fotos else None,  # compat
+                'url_editar':               f'/proyectos/{p.id_proyecto}/editar/',
+                'url_detalle':              f'/proyectos/{p.id_proyecto}/',
             }
         })
 

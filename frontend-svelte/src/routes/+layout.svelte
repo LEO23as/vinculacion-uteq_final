@@ -93,8 +93,11 @@
     <!-- NAVBAR -->
     <header class="navbar">
       <div class="navbar-left">
-        <img src="/logo-uteq.png" alt="UTEQ" class="nav-logo" />
-        <span class="nav-title">SGV <span class="nav-sub">| Sistema de Gestión de Vinculación</span></span>
+        <a href="/dashboard" class="nav-brand" title="Ir al inicio">
+          <span class="nav-brand-main">SGV</span>
+          <span class="nav-brand-sep">|</span>
+          <span class="nav-brand-sub">Sistema de Gestión de Vinculación</span>
+        </a>
       </div>
       <div class="navbar-right">
         <button class="icon-btn" title="Notificaciones">
@@ -222,9 +225,17 @@
 }
 .navbar-left  { display:flex;align-items:center;gap:10px; }
 .navbar-right { display:flex;align-items:center;gap:10px; }
-.nav-logo  { height:36px;filter:brightness(0) invert(1); }
-.nav-title { color:#fff;font-weight:800;font-size:1.05rem; }
-.nav-sub   { font-weight:500;font-size:.85rem;opacity:.85; }
+
+.nav-brand {
+  display:flex;align-items:center;gap:8px;
+  color:#fff;text-decoration:none;
+  padding:5px 4px;border-radius:6px;
+  transition:opacity .18s;
+}
+.nav-brand:hover { opacity:.85; }
+.nav-brand-main { font-weight:900;font-size:1.05rem;letter-spacing:.02em; }
+.nav-brand-sep  { opacity:.75;font-weight:400; }
+.nav-brand-sub  { font-weight:500;font-size:.85rem;opacity:.95; }
 
 .icon-btn {
   position:relative;background:rgba(255,255,255,.15);border:none;border-radius:50%;
