@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/auth/me/',             views.api_me,                name='api_me'),
     path('api/dashboard/stats/',     views.api_dashboard_stats,   name='api_dashboard_stats'),
     path('api/periodos/',            views.api_periodos,          name='api_periodos'),
+    path('api/tipos-documento/',     views.api_tipos_documento,   name='api_tipos_documento'),
     path('api/facultades/',          views.api_facultades,        name='api_facultades'),
     path('api/carreras/',            views.api_carreras,          name='api_carreras'),
     path('api/entidades/',           views.api_entidades,         name='api_entidades'),

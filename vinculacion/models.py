@@ -186,6 +186,7 @@ class Proyecto(models.Model):
     fecha_aprobacion = models.DateField(blank=True, null=True)
     resolucion_aprobacion = models.CharField(max_length=300, blank=True, null=True)
     presupuesto_planificado = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    terminos_negociacion = models.TextField(blank=True, null=True)
     estado = models.CharField(max_length=30)
     motivo_detencion = models.TextField(blank=True, null=True)
     fecha_inicio = models.DateField(blank=True, null=True)

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { fetchAPI } from '$lib/stores';
+  import { toast } from '$lib/toast';
 
   const API_BASE = 'http://127.0.0.1:8000';
   const id = $derived($page.params.id);
@@ -9,6 +10,12 @@
   let proy = $state(null);
   let loading = $state(true);
   let fotoActiva = $state(null);
+
+  let documentos = $state([]);
+  let tiposDoc = $state([]);
+  let codigoTipoSubir = $state('');
+  let archivoSubir = $state(null);
+  let subiendoDoc = $state(false);
 
   const ESTADOS = {
     EN_EJECUCION: { label:'En ejecución', cls:'ejecucion' },
@@ -22,9 +29,44 @@
 
   onMount(async () => {
     try {
-      proy = await fetchAPI(`/api/proyectos/${id}/detalle/`);
+      [proy, tiposDoc] = await Promise.all([
+        fetchAPI(`/api/proyectos/${id}/detalle/`),
+        fetchAPI('/api/tipos-documento/'),
+      ]);
+      await cargarDocumentos();
     } finally { loading = false; }
   });
+
+  async function cargarDocumentos() {
+    try { documentos = await fetchAPI(`/api/proyectos/${id}/documentos/`); } catch { documentos = []; }
+  }
+
+  function onArchivoSubirChange(e) { archivoSubir = e.target.files[0] || null; }
+
+  async function subirDocumento() {
+    if (!codigoTipoSubir || !archivoSubir) { toast.error('Selecciona el tipo de documento y el archivo.'); return; }
+    subiendoDoc = true;
+    try {
+      const fd = new FormData();
+      fd.append('codigo_tipo', codigoTipoSubir);
+      fd.append('archivo', archivoSubir);
+      const res = await fetch(`/api/proyectos/${id}/documentos/subir/`, { method:'POST', credentials:'include', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data.error || 'Error al subir el documento'); return; }
+      archivoSubir = null; codigoTipoSubir = '';
+      await cargarDocumentos();
+      toast.success('Documento subido');
+    } catch { toast.error('Error de conexión'); }
+    finally { subiendoDoc = false; }
+  }
+
+  async function eliminarDocumento(idDoc) {
+    try {
+      await fetch(`/api/documentos/${idDoc}/`, { method:'DELETE', credentials:'include' });
+      await cargarDocumentos();
+      toast.success('Documento eliminado');
+    } catch { toast.error('No se pudo eliminar'); }
+  }
 </script>
 
 <svelte:head><title>{proy?.nombre || 'Proyecto'} — SGV</title></svelte:head>
@@ -121,6 +163,18 @@
               <span class="info-val">{proy.canton}, {proy.parroquia ? proy.parroquia + ', ' : ''}{proy.provincia}</span>
             </div>
             {/if}
+            {#if proy.presupuesto_planificado}
+            <div class="info-item">
+              <span class="info-label">Presupuesto planificado</span>
+              <span class="info-val">$ {proy.presupuesto_planificado}</span>
+            </div>
+            {/if}
+            {#if proy.resolucion_aprobacion}
+            <div class="info-item">
+              <span class="info-label">Resolución de aprobación</span>
+              <span class="info-val">{proy.resolucion_aprobacion}</span>
+            </div>
+            {/if}
           </div>
           {#if proy.descripcion}
             <div class="sec-section">
@@ -132,6 +186,12 @@
             <div class="sec-section">
               <span class="info-label">Objetivo general</span>
               <p class="info-text">{proy.objetivo_general}</p>
+            </div>
+          {/if}
+          {#if proy.terminos_negociacion}
+            <div class="sec-section">
+              <span class="info-label">Términos de negociación</span>
+              <p class="info-text">{proy.terminos_negociacion}</p>
             </div>
           {/if}
         </div>
@@ -149,6 +209,38 @@
             </div>
           </div>
         {/if}
+
+        <!-- Documentos del portafolio -->
+        <div class="sec-card">
+          <h3 class="sec-title"><i class="bi bi-folder-fill"></i> Documentos del portafolio ({documentos.length})</h3>
+          {#if documentos.length}
+            <div class="docs-list">
+              {#each documentos as d}
+                <div class="doc-row">
+                  <i class="bi bi-file-earmark-pdf"></i>
+                  <div class="doc-info">
+                    <a href={API_BASE + d.url} target="_blank">{d.tipo}</a>
+                    <span class="doc-meta">{d.codigo_tipo} — {d.nombre} · {d.tamanio_kb} KB</span>
+                  </div>
+                  <button class="doc-del" onclick={() => eliminarDocumento(d.id)} title="Eliminar"><i class="bi bi-trash"></i></button>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <p class="empty-side">Aún no se han subido documentos.</p>
+          {/if}
+
+          <div class="doc-upload">
+            <select bind:value={codigoTipoSubir}>
+              <option value="">— Tipo de documento —</option>
+              {#each tiposDoc as t}<option value={t.codigo}>{t.numero_carpeta}. {t.nombre}</option>{/each}
+            </select>
+            <input type="file" accept="application/pdf,image/*" onchange={onArchivoSubirChange} />
+            <button class="btn-side-add" onclick={subirDocumento} disabled={subiendoDoc}>
+              {#if subiendoDoc}<i class="bi bi-arrow-repeat spin"></i>{:else}<i class="bi bi-cloud-arrow-up"></i> Subir{/if}
+            </button>
+          </div>
+        </div>
 
       </div>
 
@@ -250,6 +342,21 @@
 .foto-thumb img { width:100%;height:100%;object-fit:cover;display:block; }
 
 .empty-side { font-size:.8rem;color:var(--gris);padding:6px 0; }
+
+.docs-list { display:flex;flex-direction:column;gap:8px;margin-bottom:14px; }
+.doc-row { display:flex;align-items:center;gap:10px;background:#f6fbf2;border:1px solid #cfe6c2;border-radius:10px;padding:8px 12px; }
+.doc-row > i { color:#c0392b;font-size:1.1rem;flex-shrink:0; }
+.doc-info { flex:1;display:flex;flex-direction:column;gap:1px;min-width:0; }
+.doc-info a { font-size:.83rem;font-weight:700;color:var(--verde);text-decoration:none; }
+.doc-info a:hover { text-decoration:underline; }
+.doc-meta { font-size:.7rem;color:var(--gris);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.doc-del { background:none;border:none;color:#bbb;font-size:.9rem;cursor:pointer;padding:4px;border-radius:6px;flex-shrink:0; }
+.doc-del:hover { background:#fdecec;color:#dc3545; }
+.doc-upload { display:flex;flex-wrap:wrap;gap:8px;align-items:center; }
+.doc-upload select { flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:.82rem;font-family:inherit; }
+.doc-upload input[type=file] { flex:1;min-width:160px;font-size:.78rem; }
+.doc-upload .btn-side-add { border:none;cursor:pointer;font-family:inherit;margin-top:0; }
+.doc-upload .btn-side-add:disabled { opacity:.6;cursor:not-allowed; }
 .link-ver { display:block;font-size:.82rem;color:var(--verde);font-weight:700;margin-bottom:8px;text-decoration:none; }
 .link-ver:hover { text-decoration:underline; }
 .btn-side-add {

@@ -497,9 +497,28 @@ def _error_amigable(e):
     return s
 
 
+EXTENSIONES_IMAGEN = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+EXTENSIONES_DOCUMENTO = EXTENSIONES_IMAGEN | {'.pdf'}
+TAMANIO_MAX_MB = 10
+
+
+def _validar_archivo(archivo, extensiones_permitidas):
+    """Valida tamaño y extensión de un archivo subido. Devuelve un mensaje de error o None si es válido."""
+    ext = os.path.splitext(archivo.name)[1].lower()
+    if ext not in extensiones_permitidas:
+        permitidas = ', '.join(sorted(extensiones_permitidas))
+        return f'Formato no permitido para "{archivo.name}". Formatos aceptados: {permitidas}.'
+    if archivo.size > TAMANIO_MAX_MB * 1024 * 1024:
+        return f'El archivo "{archivo.name}" supera el tamaño máximo permitido ({TAMANIO_MAX_MB}MB).'
+    return None
+
+
 def _guardar_fotos(request, proyecto):
     fotos = request.FILES.getlist('fotos')
     for foto in fotos:
+        error = _validar_archivo(foto, EXTENSIONES_IMAGEN)
+        if error:
+            raise ValueError(error)
         carpeta = f'proyectos/{proyecto.id_proyecto}/'
         ruta_completa = os.path.join(settings.MEDIA_ROOT, carpeta)
         os.makedirs(ruta_completa, exist_ok=True)
@@ -1167,6 +1186,10 @@ def api_proyecto_detalle(request, id):
         'linea_vinculacion': proyecto.linea_vinculacion or '',
         'fecha_inicio': str(proyecto.fecha_inicio) if proyecto.fecha_inicio else '',
         'fecha_fin_planificada': str(proyecto.fecha_fin_planificada) if proyecto.fecha_fin_planificada else '',
+        'presupuesto_planificado': str(proyecto.presupuesto_planificado) if proyecto.presupuesto_planificado is not None else '',
+        'terminos_negociacion': proyecto.terminos_negociacion or '',
+        'resolucion_aprobacion': proyecto.resolucion_aprobacion or '',
+        'fecha_aprobacion': str(proyecto.fecha_aprobacion) if proyecto.fecha_aprobacion else '',
         'fotos': fotos_urls,
         'convenios_count': convenios_count,
         'url_detalle': f'/proyectos/{proyecto.id_proyecto}/detalle/',
@@ -1465,6 +1488,17 @@ def api_periodos(request):
 
 
 @api_view(['GET'])
+def api_tipos_documento(request):
+    if not request.session.get('usuario_id'):
+        return Response({'error': 'No autenticado'}, status=401)
+    qs = TipoDocumento.objects.all().order_by('numero_carpeta')
+    return Response([
+        {'codigo': t.codigo, 'nombre': t.nombre, 'numero_carpeta': t.numero_carpeta}
+        for t in qs
+    ])
+
+
+@api_view(['GET'])
 def api_facultades(request):
     if not request.session.get('usuario_id'):
         return Response({'error': 'No autenticado'}, status=401)
@@ -1696,6 +1730,7 @@ def api_entidades_post(request):
             sector=data.get('sector', '') or None,
             observaciones=data.get('observaciones', '') or None,
             activo=data.get('activo', True),
+            creado_en=timezone.now(),
         )
         return JsonResponse(EntidadSerializer(entidad).data, status=201)
     except Exception as e:
@@ -1771,6 +1806,8 @@ def api_proyecto_create(request):
             fecha_fin_planificada=request.POST.get('fecha_fin_planificada', '').strip() or None,
             ods=request.POST.get('ods', '').strip() or None,
             observaciones=request.POST.get('observaciones', '').strip() or None,
+            presupuesto_planificado=request.POST.get('presupuesto_planificado', '').strip() or None,
+            terminos_negociacion=request.POST.get('terminos_negociacion', '').strip() or None,
             latitud=lat,
             longitud=lng,
             creado_en=timezone.now(),
@@ -1814,6 +1851,9 @@ def api_documento_subir(request, id):
     archivo = request.FILES.get('archivo')
     creado = None
     if archivo:
+        error = _validar_archivo(archivo, EXTENSIONES_DOCUMENTO)
+        if error:
+            return JsonResponse({'error': error}, status=400)
         carpeta = f'proyectos/{proyecto.id_proyecto}/documentos/'
         ruta_completa = os.path.join(settings.MEDIA_ROOT, carpeta)
         os.makedirs(ruta_completa, exist_ok=True)
@@ -1950,6 +1990,8 @@ def api_proyecto_update(request, id):
         data['fecha_fin_planificada'] = str(proyecto.fecha_fin_planificada) if proyecto.fecha_fin_planificada else ''
         data['fecha_aprobacion'] = str(proyecto.fecha_aprobacion) if proyecto.fecha_aprobacion else ''
         data['resolucion_aprobacion'] = proyecto.resolucion_aprobacion or ''
+        data['presupuesto_planificado'] = str(proyecto.presupuesto_planificado) if proyecto.presupuesto_planificado is not None else ''
+        data['terminos_negociacion'] = proyecto.terminos_negociacion or ''
         data['fotos'] = [{'id': f['id_foto'], 'url': '/media/' + f['ruta_foto'], 'titulo': f['titulo']} for f in fotos]
         ubis = ProyectoUbicacion.objects.filter(id_proyecto=proyecto).order_by('-es_principal', 'id_ubicacion')
         data['ubicaciones'] = [{
@@ -1994,6 +2036,8 @@ def api_proyecto_update(request, id):
             proyecto.fecha_inicio = request.POST.get('fecha_inicio', '').strip() or None
             proyecto.fecha_fin_planificada = request.POST.get('fecha_fin_planificada', '').strip() or None
             proyecto.observaciones = request.POST.get('observaciones', '').strip() or None
+            proyecto.presupuesto_planificado = request.POST.get('presupuesto_planificado', '').strip() or None
+            proyecto.terminos_negociacion = request.POST.get('terminos_negociacion', '').strip() or None
             lat = request.POST.get('latitud', '').strip()
             lng = request.POST.get('longitud', '').strip()
             proyecto.latitud = lat or None
@@ -2170,6 +2214,9 @@ def api_convenio_anexo_subir(request, id):
     archivo = request.FILES.get('archivo')
     if not archivo:
         return JsonResponse({'error': 'No se recibió archivo'}, status=400)
+    error = _validar_archivo(archivo, EXTENSIONES_DOCUMENTO)
+    if error:
+        return JsonResponse({'error': error}, status=400)
     carpeta = os.path.join(settings.MEDIA_ROOT, 'convenios', str(id))
     os.makedirs(carpeta, exist_ok=True)
     ext = os.path.splitext(archivo.name)[1].lower()

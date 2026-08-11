@@ -6,6 +6,7 @@
   import { toast } from '$lib/toast';
   import MapaSelector from '$lib/MapaSelector.svelte';
   import OdsPicker from '$lib/OdsPicker.svelte';
+  import ConvenioModal from '$lib/ConvenioModal.svelte';
 
   const id = $derived($page.params.id);
 
@@ -26,8 +27,7 @@
   const PASOS = [
     { n: 1, label: 'Datos del proyecto', icon: 'bi-clipboard-data' },
     { n: 2, label: 'Resolución de aprobación', icon: 'bi-file-earmark-check' },
-    { n: 3, label: 'Planificación', icon: 'bi-diagram-3' },
-    { n: 4, label: 'Convenios', icon: 'bi-people' },
+    { n: 3, label: 'Convenios', icon: 'bi-people' },
   ];
 
   let form = $state({
@@ -36,13 +36,18 @@
     linea_vinculacion:'', programa:'', area_conocimiento:'', sub_area_conocimiento:'',
     objetivo_general:'', fecha_inicio:'', fecha_fin_planificada:'', ods:'',
     provincia:'', canton:'', parroquia:'', sector:'', latitud:'', longitud:'',
-    descripcion:'', observaciones:'',
+    descripcion:'', observaciones:'', presupuesto_planificado:'', terminos_negociacion:'',
   });
   let nuevasFotos = $state([]);
   let previews = $state([]);
   let resolForm = $state({ resolucion_aprobacion:'', fecha_aprobacion:'' });
   let resolFile = $state(null);
   let planFile  = $state(null);
+  let mostrarPlanificacion = $state(false);
+  let convenioFile = $state(null);
+  let modalConvenioOpen = $state(false);
+  let convenioRegistrado = $state(false);
+  function onConvenioCreado() { convenioRegistrado = true; }
 
   const ESTADOS = ['EN_EJECUCION','PROPUESTO','APROBADO','EN_CIERRE','DETENIDO','FINALIZADO','RECHAZADO'];
   const ESTADOS_LABEL = {
@@ -106,6 +111,19 @@
 
   function pickResol(e){ resolFile = e.target.files[0] || null; }
   function pickPlan(e){ planFile = e.target.files[0] || null; }
+  function pickConvenio(e){ convenioFile = e.target.files[0] || null; }
+
+  async function guardarPaso3() {
+    error = '';
+    if (!convenioFile) { finalizar(); return; }
+    subiendo = true;
+    try {
+      await subirDoc('DOC_03', convenioFile);
+      convenioFile = null; await cargarDocumentos();
+      toast.success('Convenio guardado en el portafolio');
+      finalizar();
+    } catch (e) { error = e.message; toast.error(e.message); } finally { subiendo = false; }
+  }
 
   // ── Paso 1: guardar la ficha ────────────────────────────────────
   async function guardarPaso1() {
@@ -133,6 +151,10 @@
       const data = await res.json();
       if (!res.ok) { error = data.error || 'Error al guardar'; toast.error(error); return; }
       nuevasFotos = []; previews = [];
+      if (planFile) {
+        try { await subirDoc('DOC_02', planFile); planFile = null; await cargarDocumentos(); }
+        catch (e) { toast.error('Guardado, pero falló la planificación: ' + e.message); }
+      }
       toast.success('Datos del proyecto guardados');
       paso = 2;
     } catch { error = 'Error de conexión'; toast.error(error); }
@@ -158,14 +180,6 @@
       resolFile = null; await cargarDocumentos();
       toast.success('Resolución de aprobación guardada');
       paso = 3;
-    } catch (e) { error = e.message; toast.error(e.message); } finally { subiendo = false; }
-  }
-
-  async function guardarPaso3() {
-    error = ''; subiendo = true;
-    try {
-      if (planFile) { await subirDoc('DOC_02', planFile); planFile = null; await cargarDocumentos(); toast.success('Planificación guardada'); }
-      paso = 4;
     } catch (e) { error = e.message; toast.error(e.message); } finally { subiendo = false; }
   }
 
@@ -198,7 +212,7 @@
         <div class="step-circle">{#if paso > p.n}<i class="bi bi-check-lg"></i>{:else}{p.n}{/if}</div>
         <span class="step-label">{p.label}</span>
       </button>
-      {#if p.n < 4}<div class="step-line" class:hecho={paso > p.n}></div>{/if}
+      {#if p.n < 3}<div class="step-line" class:hecho={paso > p.n}></div>{/if}
     {/each}
   </div>
 
@@ -212,8 +226,8 @@
       <div class="sec">
         <h4 class="sec-hdr">Identificación</h4>
         <div class="grid-row">
+          <div class="field col-12"><label>Título del proyecto *</label><input class="input-titulo" bind:value={form.nombre} /></div>
           <div class="field col-4"><label>Código *</label><input bind:value={form.codigo} /></div>
-          <div class="field col-8"><label>Título del proyecto *</label><input bind:value={form.nombre} /></div>
         </div>
       </div>
 
@@ -267,6 +281,38 @@
           <div class="field col-4"><label>Fecha de inicio</label><input type="date" bind:value={form.fecha_inicio} /></div>
           <div class="field col-4"><label>Fecha de finalización</label><input type="date" bind:value={form.fecha_fin_planificada} /></div>
         </div>
+      </div>
+
+      <div class="sec">
+        <h4 class="sec-hdr">Presupuesto y negociación</h4>
+        <div class="grid-row">
+          <div class="field col-4"><label>Presupuesto planificado (USD)</label><input type="number" min="0" step="0.01" bind:value={form.presupuesto_planificado} /></div>
+          <div class="field col-8"><label>Términos de negociación</label><textarea rows="2" bind:value={form.terminos_negociacion}></textarea></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h4 class="sec-hdr">Planificación de actividades <span class="sec-note">— opcional</span></h4>
+        {#if docPorTipo('DOC_02')}
+          <div class="doc-existe">
+            <i class="bi bi-file-earmark-pdf"></i>
+            <a href={docPorTipo('DOC_02').url} target="_blank">{docPorTipo('DOC_02').nombre}</a>
+            <span class="doc-kb">{docPorTipo('DOC_02').tamanio_kb} KB</span>
+            <button class="doc-del" onclick={() => eliminarDoc(docPorTipo('DOC_02').id)} title="Eliminar"><i class="bi bi-trash"></i></button>
+          </div>
+        {/if}
+        {#if planFile || docPorTipo('DOC_02') || mostrarPlanificacion}
+          <label class="drop-zone doc">
+            <input type="file" accept="application/pdf,image/*" onchange={pickPlan} />
+            <i class="bi bi-file-earmark-arrow-up"></i>
+            <span>{planFile ? planFile.name : (docPorTipo('DOC_02') ? 'Reemplazar el PDF' : 'Clic para subir el PDF de planificación')}</span>
+            <small>PDF o imagen</small>
+          </label>
+        {:else}
+          <button type="button" class="btn-add-inline" onclick={() => mostrarPlanificacion = true}>
+            <i class="bi bi-plus-lg"></i> Agregar planificación (PDF)
+          </button>
+        {/if}
       </div>
 
       <div class="sec">
@@ -337,48 +383,51 @@
         </button>
       </div>
 
-    <!-- PASO 3: PLANIFICACIÓN -->
-    {:else if paso === 3}
-      <h2 class="form-title"><i class="bi bi-diagram-3"></i> Planificación de actividades</h2>
-      <p class="paso-desc">PDF de la planificación de actividades (DOC_02).</p>
-      {#if docPorTipo('DOC_02')}
+    <!-- PASO 3: CONVENIOS -->
+    {:else}
+      <h2 class="form-title"><i class="bi bi-people"></i> Convenios</h2>
+      <p class="paso-desc">Registra el convenio con la entidad cooperante y sube aquí el PDF del convenio (DOC_03).</p>
+
+      <div class="sec">
+        {#if convenioRegistrado}
+          <div class="convenio-ok"><i class="bi bi-check-circle-fill"></i> Convenio registrado</div>
+        {:else}
+          <button type="button" class="btn-side-add-lg" onclick={() => modalConvenioOpen = true}>
+            <i class="bi bi-plus-lg"></i> Registrar convenio y entidad cooperante
+          </button>
+          <small class="pp-hint">Se abre en una ventana flotante, sin salir de este formulario.</small>
+        {/if}
+      </div>
+
+      {#if docPorTipo('DOC_03')}
         <div class="doc-existe">
           <i class="bi bi-file-earmark-pdf"></i>
-          <a href={docPorTipo('DOC_02').url} target="_blank">{docPorTipo('DOC_02').nombre}</a>
-          <span class="doc-kb">{docPorTipo('DOC_02').tamanio_kb} KB</span>
-          <button class="doc-del" onclick={() => eliminarDoc(docPorTipo('DOC_02').id)} title="Eliminar"><i class="bi bi-trash"></i></button>
+          <a href={docPorTipo('DOC_03').url} target="_blank">{docPorTipo('DOC_03').nombre}</a>
+          <span class="doc-kb">{docPorTipo('DOC_03').tamanio_kb} KB</span>
+          <button class="doc-del" onclick={() => eliminarDoc(docPorTipo('DOC_03').id)} title="Eliminar"><i class="bi bi-trash"></i></button>
         </div>
       {/if}
       <div class="sec">
         <label class="drop-zone doc">
-          <input type="file" accept="application/pdf,image/*" onchange={pickPlan} />
+          <input type="file" accept="application/pdf,image/*" onchange={pickConvenio} />
           <i class="bi bi-file-earmark-arrow-up"></i>
-          <span>{planFile ? planFile.name : (docPorTipo('DOC_02') ? 'Reemplazar el PDF' : 'Subir el PDF de planificación')}</span>
+          <span>{convenioFile ? convenioFile.name : (docPorTipo('DOC_03') ? 'Reemplazar el PDF' : 'Subir el PDF del convenio')}</span>
           <small>PDF o imagen</small>
         </label>
       </div>
+
       <div class="form-actions between">
         <button class="btn-cancel" onclick={() => paso = 2}><i class="bi bi-arrow-left"></i> Atrás</button>
         <button class="btn-save" onclick={guardarPaso3} disabled={subiendo}>
-          {#if subiendo}<i class="bi bi-arrow-repeat spin"></i> Guardando…{:else}Guardar y continuar <i class="bi bi-arrow-right"></i>{/if}
+          {#if subiendo}<i class="bi bi-arrow-repeat spin"></i> Guardando…{:else}Finalizar <i class="bi bi-arrow-right"></i>{/if}
         </button>
-      </div>
-
-    <!-- PASO 4: CONVENIOS -->
-    {:else}
-      <div class="paso-pendiente">
-        <div class="pp-icon"><i class="bi bi-check-circle-fill"></i></div>
-        <h2 class="form-title">Cambios guardados</h2>
-        <p class="pp-sub">El paso de <strong>Convenios</strong> (buscar o crear entidad + subir el PDF del convenio) se habilita en la próxima entrega.</p>
-        <div class="form-actions center">
-          <button class="btn-cancel" onclick={() => paso = 3}><i class="bi bi-arrow-left"></i> Atrás</button>
-          <button class="btn-save" onclick={finalizar}>Ver el proyecto <i class="bi bi-arrow-right"></i></button>
-        </div>
       </div>
     {/if}
   </div>
 </div>
 {/if}
+
+<ConvenioModal bind:open={modalConvenioOpen} proyectoId={id} onCreated={onConvenioCreado} />
 
 <style>
   .sec-note { font-size:.72rem; font-weight:600; color:var(--gris); }
@@ -410,9 +459,30 @@
   .doc-del { background:none; border:none; color:#bbb; font-size:.9rem; cursor:pointer; padding:4px; border-radius:6px; }
   .doc-del:hover { background:#fdecec; color:#dc3545; }
 
-  .paso-pendiente { text-align:center; padding:20px 10px 10px; }
-  .pp-icon { font-size:2.6rem; color:var(--verde); margin-bottom:8px; }
-  .pp-sub { font-size:.86rem; color:#666; max-width:520px; margin:6px auto 20px; line-height:1.5; }
+  .btn-side-add-lg {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--verde); color:#fff; border-radius:10px;
+    padding:12px 18px; font-size:.9rem; font-weight:800; text-decoration:none;
+    transition:opacity .2s;
+  }
+  .btn-side-add-lg:hover { opacity:.9; }
+  .pp-hint { display:block; margin-top:8px; font-size:.76rem; color:var(--gris); }
+
+  .convenio-ok {
+    display:flex; align-items:center; gap:8px;
+    background:var(--verde-claro); color:var(--verde); border-radius:10px;
+    padding:12px 18px; font-size:.86rem; font-weight:800;
+  }
+
+  .input-titulo { font-size:1.15rem; font-weight:700; padding:12px 14px; }
+
+  .btn-add-inline {
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--verde-claro); color:var(--verde); border:none; border-radius:8px;
+    padding:9px 16px; font-size:.84rem; font-weight:800; cursor:pointer; font-family:inherit;
+    transition:background .2s;
+  }
+  .btn-add-inline:hover { background:#c8e6b0; }
 
   @keyframes spin { to { transform:rotate(360deg); } }
   .spin { display:inline-block;animation:spin .7s linear infinite; }
