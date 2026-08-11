@@ -32,6 +32,9 @@ urlpatterns = [
     path('api/proyectos/<int:id>/detalle/', views.api_proyecto_detalle, name='api_proyecto_detalle'),
     path('api/capa-pobreza/',        views.api_capa_pobreza,      name='api_capa_pobreza'),
     path('api/inec-sectores/',       views.api_inec_sectores,     name='api_inec_sectores'),
+    path('api/capas-indicador/',                          views.api_capas_indicador_list,   name='api_capas_indicador_list'),
+    path('api/capas-indicador/upload/',                   views.api_capas_indicador_upload, name='api_capas_indicador_upload'),
+    path('api/capas-indicador/<str:tipo>/<int:anio>/',    views.api_capas_indicador_delete, name='api_capas_indicador_delete'),
 
     # CRUD
     path('api/periodos/create/',        views.api_periodos_post,          name='api_periodos_post'),

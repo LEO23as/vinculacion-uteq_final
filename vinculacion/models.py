@@ -540,3 +540,27 @@ class EstructuraCambio(models.Model):
 
     def __str__(self):
         return f'{self.entidad_tipo} {self.entidad_id}: {self.tipo_cambio}'
+
+
+class CapaIndicadorCanton(models.Model):
+    """Atributos temáticos por cantón (NBI, IDH, etc.).
+    La geometría vive en /static/geo/cantones_ec.geojson y se une por dpa_canton.
+    """
+    id_indicador = models.AutoField(primary_key=True)
+    tipo_indicador = models.CharField(max_length=30)
+    dpa_canton = models.CharField(max_length=4)
+    provincia = models.CharField(max_length=80)
+    canton = models.CharField(max_length=80)
+    valor = models.DecimalField(max_digits=6, decimal_places=2)
+    unidad = models.CharField(max_length=20, default='%')
+    fuente = models.CharField(max_length=160)
+    anio = models.IntegerField()
+    fecha_carga = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'capa_indicador_canton'
+        unique_together = (('tipo_indicador', 'dpa_canton', 'anio'),)
+
+    def __str__(self):
+        return f'{self.tipo_indicador} {self.dpa_canton} {self.anio}: {self.valor}{self.unidad}'

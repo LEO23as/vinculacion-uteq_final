@@ -13,10 +13,14 @@
   let proySeleccionado = $state(null);
 
   // Capa NBI (estado en store compartido con layout)
-  let nbiAviso    = $state('');
-  let nbiByCanton = null;
-  let nbiLayer    = null;
-  let nbiLeyenda  = null;
+  let nbiAviso     = $state('');
+  let nbiCargaTodo = $state(false);   // switch: OFF = solo viewport, ON = todos los cantones
+  let nbiByCanton  = null;
+  let nbiLayer     = null;
+  let nbiLeyenda   = null;
+
+  // Quevedo (centro por defecto)
+  const QUEVEDO = { lat: -1.026, lng: -79.474, zoom: 12 };
 
   const ESTADOS = [
     { val:'EN_EJECUCION', label:'En ejecución', color:'#1b7505' },
@@ -55,41 +59,40 @@
   }
 
   // ── Capa NBI/INEC ───────────────────────────────────────────
+  // Paleta pastel (tonos tierra/durazno) — más suave que YlOrRd
   function getNBIColor(pct) {
-    if (pct >= 80) return '#800026';
-    if (pct >= 65) return '#bd0026';
-    if (pct >= 50) return '#e31a1c';
-    if (pct >= 40) return '#fc4e2a';
-    if (pct >= 30) return '#fd8d3c';
-    if (pct >= 20) return '#feb24c';
-    return '#fed976';
+    if (pct >= 80) return '#c96f6f';
+    if (pct >= 65) return '#e08a7d';
+    if (pct >= 50) return '#eaa98a';
+    if (pct >= 40) return '#f2c19a';
+    if (pct >= 30) return '#f5d4a8';
+    if (pct >= 20) return '#f7e3b8';
+    return '#f0ead2';
   }
 
-  // Normaliza nombre: minúsculas, sin acentos, sin espacios extra
-  function norm(s) {
-    return (s || '')
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .toLowerCase().trim();
-  }
-
-  // Índice NBI por "provincia|canton" normalizado
-  let nbiByName = null;
-  function buildNbiByName() {
-    if (nbiByName || !nbiByCanton) return;
-    nbiByName = {};
-    for (const dpa in nbiByCanton) {
-      const e = nbiByCanton[dpa];
-      nbiByName[`${norm(e.provincia)}|${norm(e.canton)}`] = { ...e, dpa };
-    }
-  }
-
-  // Cache del geojson de cantones
+  // Cache del geojson de cantones (viene con dpa_canton ya inyectado)
   let cantonesGeo = null;
+
+  // Bounds cacheados por feature (evitar recomputar en cada moveend)
+  const featureBoundsCache = new WeakMap();
+  function getFeatureBounds(L, feature) {
+    let b = featureBoundsCache.get(feature);
+    if (b) return b;
+    b = L.geoJSON(feature).getBounds();
+    featureBoundsCache.set(feature, b);
+    return b;
+  }
+
+  function filtrarFeaturesPorVista(L) {
+    if (!cantonesGeo || !map) return cantonesGeo?.features ?? [];
+    if (nbiCargaTodo) return cantonesGeo.features;
+    const view = map.getBounds();
+    return cantonesGeo.features.filter(f => view.intersects(getFeatureBounds(L, f)));
+  }
 
   async function cargarCantonesNBI() {
     const L = window._L;
     if (!map || !nbiByCanton) return;
-    buildNbiByName();
     nbiAviso = 'Cargando capa NBI…';
     try {
       if (!cantonesGeo) {
@@ -97,40 +100,56 @@
         if (!res.ok) throw new Error(`HTTP ${res.status} al leer /geo/cantones_ec.geojson`);
         cantonesGeo = await res.json();
       }
-      if (nbiLayer) { map.removeLayer(nbiLayer); nbiLayer = null; }
-      let matched = 0;
-      nbiLayer = L.geoJSON(cantonesGeo, {
-        style: (feature) => {
-          const p = feature.properties || {};
-          const key = `${norm(p.province)}|${norm(p.canton)}`;
-          const entry = nbiByName[key];
-          const pct = entry?.nbi_pct ?? null;
-          if (pct !== null) matched++;
-          return {
-            weight: 0.6, opacity: 0.8, color: '#333',
-            fillOpacity: pct !== null ? 0.65 : 0.05,
-            fillColor: pct !== null ? getNBIColor(pct) : '#ccc',
-          };
-        },
-        onEachFeature: (feature, layer) => {
-          const p = feature.properties || {};
-          const key = `${norm(p.province)}|${norm(p.canton)}`;
-          const entry = nbiByName[key];
-          const nombre = p.canton || '';
-          const prov = p.province || '';
-          const pct = entry?.nbi_pct;
-          layer.bindTooltip(
-            `<b>Cantón:</b> ${nombre}<br><b>Provincia:</b> ${prov}<br>` +
-            (pct != null ? `<b>NBI 2022:</b> ${pct}%` : '<i>Sin dato NBI</i>'),
-            { sticky: true, direction: 'top' }
-          );
-        },
-      }).addTo(map);
-      nbiAviso = `${matched} cantones con NBI (Censo 2022)`;
+      renderNBILayer();
     } catch (e) {
       console.error('[NBI]', e);
       nbiAviso = `Error al cargar capa NBI: ${e.message || e}`;
     }
+  }
+
+  function renderNBILayer() {
+    const L = window._L;
+    if (!map || !cantonesGeo || !nbiByCanton) return;
+    if (nbiLayer) { map.removeLayer(nbiLayer); nbiLayer = null; }
+    const feats = filtrarFeaturesPorVista(L);
+    let matched = 0;
+    nbiLayer = L.geoJSON({ type:'FeatureCollection', features: feats }, {
+      style: (feature) => {
+        const p = feature.properties || {};
+        const entry = p.dpa_canton ? nbiByCanton[p.dpa_canton] : null;
+        const pct = entry?.nbi_pct ?? null;
+        if (pct !== null) matched++;
+        return {
+          weight: 0.6, opacity: 0.8, color: '#333',
+          fillOpacity: pct !== null ? 0.65 : 0.15,
+          fillColor: pct !== null ? getNBIColor(pct) : '#d0d0d0',
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const entry = p.dpa_canton ? nbiByCanton[p.dpa_canton] : null;
+        const nombre = entry?.canton || p.canton || '';
+        const prov = entry?.provincia || p.province || '';
+        const pct = entry?.nbi_pct;
+        layer.bindTooltip(
+          `<b>Cantón:</b> ${nombre}<br><b>Provincia:</b> ${prov}<br>` +
+          (pct != null ? `<b>NBI 2022:</b> ${pct}%` : '<i>Sin dato NBI</i>'),
+          { sticky: true, direction: 'top' }
+        );
+      },
+    }).addTo(map);
+    const modo = nbiCargaTodo ? 'toda la capa' : 'solo vista actual';
+    nbiAviso = `${matched} cantones (${modo})`;
+  }
+
+  function toggleNbiCargaTodo() {
+    nbiCargaTodo = !nbiCargaTodo;
+    if (nbiLayer) renderNBILayer();
+  }
+
+  function centrarEnQuevedo() {
+    if (!map) return;
+    map.setView([QUEVEDO.lat, QUEVEDO.lng], QUEVEDO.zoom);
   }
 
   function agregarLeyendaNBI() {
@@ -141,13 +160,13 @@
       const div = L.DomUtil.create('div', 'nbi-leyenda');
       div.innerHTML = `
         <b>NBI 2022 (%)</b>
-        <div><span style="background:#800026"></span>≥ 80%</div>
-        <div><span style="background:#bd0026"></span>65 – 79%</div>
-        <div><span style="background:#e31a1c"></span>50 – 64%</div>
-        <div><span style="background:#fc4e2a"></span>40 – 49%</div>
-        <div><span style="background:#fd8d3c"></span>30 – 39%</div>
-        <div><span style="background:#feb24c"></span>20 – 29%</div>
-        <div><span style="background:#fed976"></span>&lt; 20%</div>
+        <div><span style="background:#c96f6f"></span>≥ 80%</div>
+        <div><span style="background:#e08a7d"></span>65 – 79%</div>
+        <div><span style="background:#eaa98a"></span>50 – 64%</div>
+        <div><span style="background:#f2c19a"></span>40 – 49%</div>
+        <div><span style="background:#f5d4a8"></span>30 – 39%</div>
+        <div><span style="background:#f7e3b8"></span>20 – 29%</div>
+        <div><span style="background:#f0ead2"></span>&lt; 20%</div>
       `;
       return div;
     };
@@ -192,6 +211,14 @@
     }).addTo(map);
     L.control.zoom({ position: 'topleft' }).addTo(map);
     markersLayer = L.layerGroup().addTo(map);
+
+    // Re-renderizar capa NBI en modo "solo vista" al mover/zoom
+    let mvTimer;
+    map.on('moveend zoomend', () => {
+      if (!nbiLayer || nbiCargaTodo) return;
+      clearTimeout(mvTimer);
+      mvTimer = setTimeout(renderNBILayer, 120);
+    });
 
     await cargarProyectos();
 
@@ -268,6 +295,16 @@
           <i class="bi bi-search buscar-ico"></i>
           <input class="fbuscar" bind:value={filtros.buscar} placeholder="Buscar..." />
         </div>
+
+        <button class="btn-quevedo" onclick={centrarEnQuevedo} title="Centrar en Quevedo">
+          <i class="bi bi-geo-alt-fill"></i> Quevedo
+        </button>
+
+        <label class="nbi-switch" title="OFF: solo cantones visibles · ON: toda la capa">
+          <input type="checkbox" checked={nbiCargaTodo} onchange={toggleNbiCargaTodo} />
+          <span class="ns-slider"></span>
+          <span class="ns-label">Toda la capa</span>
+        </label>
 
         {#if nbiAviso}
           <span class="nbi-aviso">{nbiAviso}</span>
@@ -469,6 +506,33 @@
 :global(.nbi-leyenda b) { display:block; font-size:.72rem; color:#333; margin-bottom:4px; font-weight:800; }
 :global(.nbi-leyenda div) { display:flex; align-items:center; gap:7px; }
 :global(.nbi-leyenda span) { display:inline-block; width:13px; height:13px; border-radius:3px; flex-shrink:0; }
+
+/* Botón Quevedo */
+.btn-quevedo {
+  display:inline-flex;align-items:center;gap:6px;
+  background:#fff;border:1.5px solid var(--verde);color:var(--verde);
+  border-radius:20px;padding:6px 14px;font-size:.78rem;font-weight:800;
+  cursor:pointer;font-family:inherit;transition:background .18s,color .18s;
+}
+.btn-quevedo:hover { background:var(--verde);color:#fff; }
+.btn-quevedo i { font-size:.85rem; }
+
+/* Switch "Toda la capa" */
+.nbi-switch {
+  display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+  padding:5px 10px;border-radius:20px;background:#fafafa;border:1.5px solid var(--borde);
+}
+.nbi-switch input { display:none; }
+.ns-slider {
+  width:32px;height:18px;background:#ccc;border-radius:20px;position:relative;transition:background .18s;
+}
+.ns-slider::after {
+  content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;
+  background:#fff;border-radius:50%;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.nbi-switch input:checked ~ .ns-slider { background:var(--verde); }
+.nbi-switch input:checked ~ .ns-slider::after { transform:translateX(14px); }
+.ns-label { font-size:.75rem;font-weight:700;color:#555; }
 
 /* Aviso NBI en sidebar */
 .nbi-aviso {

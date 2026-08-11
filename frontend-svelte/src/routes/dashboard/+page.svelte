@@ -11,11 +11,11 @@
     { href: '/proyectos',  icon: '/icons/proyectos.png',  label: 'Proyectos',  desc: 'Gestión de proyectos',         key: 'proyectos', disabled: false },
     { href: '/entidades',  icon: '/icons/entidades.png',  label: 'Entidades',  desc: 'Organizaciones aliadas',       key: 'entidades', disabled: false },
     { href: '/convenios',  icon: '/icons/convenios.png',  label: 'Convenios',  desc: 'Acuerdos institucionales',     key: 'convenios', disabled: false },
-    { href: '/periodos',   icon: '/icons/periodos.png',   label: 'Períodos',   desc: 'Períodos académicos',          key: 'periodos',  disabled: false },
     { href: '/facultades', icon: '/icons/facultades.png', label: 'Facultades', desc: 'Unidades académicas',          key: 'facultades',disabled: false },
-    { href: '/reportes',   icon: '/icons/reportes.png',   label: 'Reportes',   desc: 'Estadísticas y gráficas',      key: null,        disabled: false },
-    { href: null,          icon: '/icons/docentes.png',   label: 'Docentes',   desc: 'Próximamente',                 key: null,        disabled: true  },
-    { href: null,          icon: '/icons/usuarios.png',   label: 'Usuarios',   desc: 'Gestión de accesos',           key: null,        disabled: true  },
+    { href: '/reportes',      icon: '/icons/reportes.png',   label: 'Reportes',      desc: 'Estadísticas y gráficas',      key: null,        disabled: false },
+    { href: '/configuracion', icon: '/icons/periodos.png',   label: 'Configuración', desc: 'Períodos, capas y ajustes',    key: null,        disabled: false, bi: 'bi-gear-fill' },
+    { href: null,             icon: '/icons/docentes.png',   label: 'Docentes',      desc: 'Próximamente',                 key: null,        disabled: true  },
+    { href: null,             icon: '/icons/usuarios.png',   label: 'Usuarios',      desc: 'Gestión de accesos',           key: null,        disabled: true  },
   ];
 
   let filtered = $derived(
@@ -78,7 +78,11 @@
           <div class="mod-card disabled">
             <i class="bi bi-star-fill mod-star"></i>
             <div class="mod-icon-wrap">
-              <img src={m.icon} alt={m.label} class="mod-img" />
+              {#if m.bi}
+                <i class="bi {m.bi} mod-bi"></i>
+              {:else}
+                <img src={m.icon} alt={m.label} class="mod-img" />
+              {/if}
             </div>
             <div class="mod-name">{m.label}</div>
             <div class="mod-desc">{m.desc}</div>
@@ -90,7 +94,11 @@
               <span class="mod-badge">{stats[m.key]}</span>
             {/if}
             <div class="mod-icon-wrap">
-              <img src={m.icon} alt={m.label} class="mod-img" />
+              {#if m.bi}
+                <i class="bi {m.bi} mod-bi"></i>
+              {:else}
+                <img src={m.icon} alt={m.label} class="mod-img" />
+              {/if}
             </div>
             <div class="mod-name">{m.label}</div>
             <div class="mod-desc">{m.desc}</div>
@@ -283,6 +291,11 @@
   width: 90px;
   height: 90px;
   object-fit: contain;
+}
+.mod-bi {
+  font-size: 68px;
+  color: var(--verde);
+  line-height: 1;
 }
 
 .mod-name {

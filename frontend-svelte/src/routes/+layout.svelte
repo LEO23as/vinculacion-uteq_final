@@ -49,16 +49,21 @@
                    { href: '/carreras',   icon: 'bi-book', label: 'Carreras'   },
                  ]},
     reportes:  { modulo: 'Reportes',             links: [{ href: '/reportes',  icon: 'bi-graph-up', label: 'Estadísticas' }] },
+    configuracion: { modulo: 'Configuración',    links: [
+                   { href: '/periodos',             icon: 'bi-calendar3',      label: 'Períodos académicos' },
+                   { href: '/configuracion/capas',  icon: 'bi-layers-half',    label: 'Capas del mapa'     },
+                 ]},
   };
 
   function getKey(pathname) {
-    if (pathname.startsWith('/mapa'))       return 'mapa';
-    if (pathname.startsWith('/proyectos'))  return 'proyectos';
-    if (pathname.startsWith('/entidades'))  return 'entidades';
-    if (pathname.startsWith('/convenios'))  return 'convenios';
-    if (pathname.startsWith('/periodos'))   return 'periodos';
+    if (pathname.startsWith('/mapa'))          return 'mapa';
+    if (pathname.startsWith('/proyectos'))     return 'proyectos';
+    if (pathname.startsWith('/entidades'))     return 'entidades';
+    if (pathname.startsWith('/convenios'))     return 'convenios';
+    if (pathname.startsWith('/configuracion')) return 'configuracion';
+    if (pathname.startsWith('/periodos'))      return 'configuracion';
     if (pathname.startsWith('/facultades') || pathname.startsWith('/carreras')) return 'facultades';
-    if (pathname.startsWith('/reportes'))   return 'reportes';
+    if (pathname.startsWith('/reportes'))      return 'reportes';
     return 'dashboard';
   }
 
@@ -116,7 +121,7 @@
     </header>
 
     <!-- CUERPO -->
-    <div class="body-row">
+    <div class="body-row" class:no-sidebar={isDashboard}>
 
       {#if !isDashboard}
       <!-- COLUMNA IZQUIERDA -->
@@ -252,12 +257,28 @@
 .btn-logout:hover { color:#fff; }
 
 /* ── CUERPO ── */
-.body-row { display:flex;flex:1;align-items:flex-start;min-height:0; }
+/* Grid: fila 1 = subbar (full width), fila 2 = sidebar + contenido */
+.body-row {
+  display: grid;
+  grid-template: "sub sub" auto
+                 "side main" 1fr / 252px 1fr;
+  flex: 1;
+  min-height: 0;
+}
+.body-row.no-sidebar {
+  grid-template: "sub" auto
+                 "main" 1fr / 1fr;
+}
+
+/* .content actúa como wrapper transparente — sus hijos se ubican en el grid del padre */
+.content { display: contents; }
+:global(.content > .subbar) { grid-area: sub; }
+:global(.content > :not(.subbar)) { grid-area: main; min-width: 0; }
 
 /* ── COLUMNA IZQUIERDA ── */
 .left-col {
+  grid-area: side;
   display:flex;flex-direction:column;gap:12px;
-  width:252px;flex-shrink:0;
   position:sticky;top:68px;
   align-self:flex-start;
   padding:14px 12px 14px 16px;
@@ -338,8 +359,7 @@
 .fc-home:hover { background:#f5faf0 !important;color:var(--verde) !important;border-left-color:var(--verde) !important; }
 .fc-home:hover i { color:var(--verde) !important; }
 
-/* ── CONTENIDO ── */
-.content { flex:1;min-width:0;overflow-x:hidden;min-height:0;display:flex;flex-direction:column; }
+/* .content usa display:contents arriba — sin estilos propios */
 
 /* ── FOOTER ── */
 .app-footer {
