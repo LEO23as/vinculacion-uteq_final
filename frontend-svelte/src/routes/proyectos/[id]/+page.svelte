@@ -77,11 +77,11 @@
     <span class="sep">/</span>
     <a href="/proyectos">Proyectos</a>
     <span class="sep">/</span>
-    <span class="current">Detalle</span><span class="sep">/</span>
+    <span class="current">Detalle</span>
   </nav>
   {#if proy}
     <a href="/proyectos/{id}/editar" class="btn-editar">
-      <i class="bi bi-pencil"></i> Editar
+      <i class="bi bi-pencil-square"></i> Editar proyecto
     </a>
   {/if}
 </div>
@@ -94,7 +94,7 @@
     <!-- HEADER CARD -->
     <div class="header-card">
       <div class="hc-left">
-        <span class="hc-code">{proy.codigo}</span>
+        <span class="hc-code"><i class="bi bi-bookmark-fill"></i> {proy.codigo}</span>
         <h1 class="hc-title">{proy.nombre}</h1>
         {#if proy.nombre_corto}
           <p class="hc-short">{proy.nombre_corto}</p>
@@ -102,6 +102,7 @@
       </div>
       <div class="hc-right">
         <span class="badge est-{ESTADOS[proy.estado]?.cls}">
+          <span class="dot"></span>
           {ESTADOS[proy.estado]?.label || proy.estado}
         </span>
       </div>
@@ -135,7 +136,7 @@
             {/if}
             {#if proy.ods}
             <div class="info-item">
-              <span class="info-label">ODS</span>
+              <span class="info-label">ODS Atendidos</span>
               <span class="info-val">{proy.ods}</span>
             </div>
             {/if}
@@ -147,7 +148,7 @@
             {/if}
             {#if proy.fecha_inicio}
             <div class="info-item">
-              <span class="info-label">Fecha inicio</span>
+              <span class="info-label">Fecha de inicio</span>
               <span class="info-val">{proy.fecha_inicio}</span>
             </div>
             {/if}
@@ -159,14 +160,14 @@
             {/if}
             {#if proy.provincia}
             <div class="info-item full">
-              <span class="info-label">Ubicación</span>
-              <span class="info-val">{proy.canton}, {proy.parroquia ? proy.parroquia + ', ' : ''}{proy.provincia}</span>
+              <span class="info-label">Ubicación geográfica</span>
+              <span class="info-val"><i class="bi bi-geo-alt-fill text-verde"></i> {proy.canton}, {proy.parroquia ? proy.parroquia + ', ' : ''}{proy.provincia}</span>
             </div>
             {/if}
             {#if proy.presupuesto_planificado}
             <div class="info-item">
               <span class="info-label">Presupuesto planificado</span>
-              <span class="info-val">$ {proy.presupuesto_planificado}</span>
+              <span class="info-val text-verde font-bold">$ {proy.presupuesto_planificado}</span>
             </div>
             {/if}
             {#if proy.resolucion_aprobacion}
@@ -178,7 +179,7 @@
           </div>
           {#if proy.descripcion}
             <div class="sec-section">
-              <span class="info-label">Descripción</span>
+              <span class="info-label">Descripción del proyecto</span>
               <p class="info-text">{proy.descripcion}</p>
             </div>
           {/if}
@@ -217,7 +218,7 @@
             <div class="docs-list">
               {#each documentos as d}
                 <div class="doc-row">
-                  <i class="bi bi-file-earmark-pdf"></i>
+                  <i class="bi bi-file-earmark-pdf-fill"></i>
                   <div class="doc-info">
                     <a href={API_BASE + d.url} target="_blank">{d.tipo}</a>
                     <span class="doc-meta">{d.codigo_tipo} — {d.nombre} · {d.tamanio_kb} KB</span>
@@ -227,7 +228,7 @@
               {/each}
             </div>
           {:else}
-            <p class="empty-side">Aún no se han subido documentos.</p>
+            <p class="empty-side">Aún no se han subido documentos al portafolio.</p>
           {/if}
 
           <div class="doc-upload">
@@ -236,7 +237,7 @@
               {#each tiposDoc as t}<option value={t.codigo}>{t.numero_carpeta}. {t.nombre}</option>{/each}
             </select>
             <input type="file" accept="application/pdf,image/*" onchange={onArchivoSubirChange} />
-            <button class="btn-side-add" onclick={subirDocumento} disabled={subiendoDoc}>
+            <button class="btn-side-add primary" onclick={subirDocumento} disabled={subiendoDoc}>
               {#if subiendoDoc}<i class="bi bi-arrow-repeat spin"></i>{:else}<i class="bi bi-cloud-arrow-up"></i> Subir{/if}
             </button>
           </div>
@@ -248,13 +249,28 @@
       <div class="col-side">
         <!-- Convenios -->
         <div class="sec-card">
-          <h3 class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Convenios ({proy.convenios_count})</h3>
-          {#if proy.convenios_count > 0}
-            <a href="/convenios?proyecto={id}" class="link-ver">Ver convenios del proyecto</a>
+          <h3 class="sec-title"><i class="bi bi-file-earmark-text-fill"></i> Convenios vinculados</h3>
+          {#if proy.convenios && proy.convenios.length > 0}
+            <div class="convenios-list">
+              {#each proy.convenios as conv}
+                <div class="conv-card">
+                  <div class="conv-head">
+                    <span class="conv-entidad"><i class="bi bi-building"></i> {conv.entidad_nombre}</span>
+                    <span class="conv-badge {conv.estado.toLowerCase()}">{conv.estado}</span>
+                  </div>
+                  {#if conv.numero_memorando}
+                    <div class="conv-memo"><i class="bi bi-file-text"></i> Memo: {conv.numero_memorando}</div>
+                  {/if}
+                  <div class="conv-dates">
+                    <span>Firma: {conv.fecha_firma || 'N/A'}</span> · <span>Vence: {conv.fecha_fin || 'N/A'}</span>
+                  </div>
+                </div>
+              {/each}
+            </div>
           {:else}
-            <p class="empty-side">No hay convenios registrados</p>
+            <p class="empty-side">No hay convenios registrados para este proyecto.</p>
           {/if}
-          <a href="/convenios/nuevo?proyecto={id}" class="btn-side-add">
+          <a href="/convenios/nuevo?proyecto={id}" class="btn-side-add primary block">
             <i class="bi bi-plus-lg"></i> Agregar convenio
           </a>
         </div>
@@ -275,108 +291,150 @@
 {/if}
 
 <style>
-.subbar {
-  display:flex;align-items:center;justify-content:space-between;
-  padding:8px 24px;background:#fff;border-bottom:1px solid var(--borde);
-}
-.btn-editar:hover { background:var(--verde);color:#fff; }
+  .subbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--borde, #e0e0e0);
+  }
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--gris, #777); font-weight: 700; }
+  .breadcrumb a { color: var(--gris, #777); text-decoration: none; transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--verde, #1b5e20); }
+  .breadcrumb .sep { color: #ccc; }
+  .breadcrumb .current { color: var(--verde, #1b5e20); font-weight: 800; }
 
-.loading-wrap { display:flex;align-items:center;gap:10px;color:var(--gris);font-weight:600;padding:40px;justify-content:center;font-size:.9rem; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { display:inline-block;animation:spin .7s linear infinite; }
+  .btn-editar {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--verde, #1b5e20); color: #fff; border-radius: 9px;
+    padding: 9px 20px; font-size: 0.84rem; font-weight: 800; text-decoration: none;
+    box-shadow: 0 3px 10px rgba(27, 94, 32, 0.2); transition: all 0.2s ease;
+  }
+  .btn-editar:hover {
+    background: #134217; color: #fff; transform: translateY(-1px);
+    box-shadow: 0 5px 14px rgba(27, 94, 32, 0.3);
+  }
 
-.detalle-wrap { padding:20px 24px; }
+  .loading-wrap { display: flex; align-items: center; gap: 10px; color: var(--gris, #777); font-weight: 700; padding: 60px; justify-content: center; font-size: 0.9rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; animation: spin 0.7s linear infinite; }
 
-.header-card {
-  background:#fff;border-radius:14px;border:1px solid var(--borde);
-  padding:20px 24px;box-shadow:var(--sombra);margin-bottom:18px;
-  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
-}
-.hc-code {
-  background:var(--verde-claro);color:var(--verde);font-size:.75rem;font-weight:800;
-  padding:3px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;
-}
-.hc-title { font-size:1.2rem;font-weight:900;color:var(--negro);line-height:1.3;margin-bottom:4px; }
-.hc-short { font-size:.82rem;color:var(--gris);font-weight:600; }
-.hc-right { flex-shrink:0; }
+  .detalle-wrap { padding: 24px; }
 
-.badge { padding:4px 14px;border-radius:20px;font-size:.75rem;font-weight:800; }
-.est-ejecucion  { background:#e8f4e8;color:#1b7505; }
-.est-propuesto  { background:#fff8e1;color:#dba112; }
-.est-aprobado   { background:#e8f0ff;color:#0d6efd; }
-.est-cierre     { background:#fff3e0;color:#fd7e14; }
-.est-detenido   { background:#fff0f0;color:#dc3545; }
-.est-finalizado { background:#f4f4f4;color:#a8a8a7; }
-.est-rechazado  { background:#f4f4f4;color:#6c757d; }
+  .header-card {
+    background: #fff; border-radius: 16px; border: 1px solid #e3eee5;
+    padding: 22px 26px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); margin-bottom: 20px;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+  }
+  .hc-code {
+    background: #e8f5e9; color: var(--verde, #1b5e20); font-size: 0.78rem; font-weight: 800;
+    padding: 4px 12px; border-radius: 8px; border: 1px solid #c8e6c9; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 10px;
+  }
+  .hc-title { font-size: 1.25rem; font-weight: 900; color: #111; line-height: 1.3; margin: 0 0 6px 0; }
+  .hc-short { font-size: 0.85rem; color: #666; font-weight: 600; margin: 0; }
+  .hc-right { flex-shrink: 0; }
 
-.detalle-grid { display:grid;grid-template-columns:1fr 280px;gap:18px; }
-@media (max-width:900px) { .detalle-grid { grid-template-columns:1fr; } }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 16px; border-radius: 20px; font-size: 0.78rem; font-weight: 800;
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .est-ejecucion  { background: #e8f5e9; color: #1b7505; border: 1px solid #c8e6c9; }
+  .est-propuesto  { background: #fff8e1; color: #dba112; border: 1px solid #ffe082; }
+  .est-aprobado   { background: #e8f0ff; color: #0d6efd; border: 1px solid #b6d4fe; }
+  .est-cierre     { background: #fff3e0; color: #fd7e14; border: 1px solid #ffe0b2; }
+  .est-detenido   { background: #ffebee; color: #dc3545; border: 1px solid #ffcdd2; }
+  .est-finalizado { background: #f5f5f5; color: #616161; border: 1px solid #e0e0e0; }
+  .est-rechazado  { background: #f5f5f5; color: #757575; border: 1px solid #e0e0e0; }
 
-.sec-card {
-  background:#fff;border-radius:14px;border:1px solid var(--borde);
-  padding:18px 20px;box-shadow:var(--sombra);margin-bottom:0;
-}
-.col-main { display:flex;flex-direction:column;gap:16px; }
-.col-side { display:flex;flex-direction:column;gap:16px; }
+  .detalle-grid { display: grid; grid-template-columns: 1fr 310px; gap: 20px; }
+  @media (max-width: 960px) { .detalle-grid { grid-template-columns: 1fr; } }
 
-.sec-title {
-  font-size:.88rem;font-weight:800;color:var(--negro);
-  display:flex;align-items:center;gap:8px;margin-bottom:14px;
-}
-.sec-title i { color:var(--verde); }
+  .sec-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e5efe7;
+    padding: 22px 24px; box-shadow: 0 3px 14px rgba(0,0,0,0.04);
+  }
+  .col-main { display: flex; flex-direction: column; gap: 20px; }
+  .col-side { display: flex; flex-direction: column; gap: 20px; }
 
-.info-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:12px; }
-.info-item { display:flex;flex-direction:column;gap:2px; }
-.info-item.full { grid-column:1/-1; }
-.info-label { font-size:.65rem;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.05em; }
-.info-val { font-size:.85rem;color:var(--negro);font-weight:600; }
-.sec-section { margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px; }
-.info-text { font-size:.83rem;color:#444;line-height:1.6;margin-top:4px; }
+  .sec-title {
+    font-size: 0.88rem; font-weight: 800; color: #222; text-transform: uppercase; letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+    border-bottom: 1.5px dashed #e5efe7; padding-bottom: 10px;
+  }
+  .sec-title i {
+    font-size: 0.95rem; color: var(--verde, #1b5e20); background: #e8f5e9;
+    padding: 5px 8px; border-radius: 7px; flex-shrink: 0;
+  }
 
-.fotos-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px; }
-.foto-thumb {
-  border:none;background:none;padding:0;cursor:pointer;border-radius:8px;overflow:hidden;
-  aspect-ratio:4/3;transition:transform .2s;
-}
-.foto-thumb:hover { transform:scale(1.04); }
-.foto-thumb img { width:100%;height:100%;object-fit:cover;display:block; }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .info-item {
+    display: flex; flex-direction: column; gap: 4px;
+    background: #fafdfa; border: 1px solid #edf5ee; border-radius: 9px; padding: 12px 14px;
+  }
+  .info-item.full { grid-column: 1 / -1; }
+  .info-label { font-size: 0.68rem; font-weight: 800; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+  .info-val { font-size: 0.86rem; color: #111; font-weight: 700; word-break: break-word; }
+  .text-verde { color: var(--verde, #1b5e20); }
+  .font-bold { font-weight: 900; }
 
-.empty-side { font-size:.8rem;color:var(--gris);padding:6px 0; }
+  .sec-section { margin-top: 14px; background: #fafdfa; border: 1px solid #edf5ee; border-radius: 9px; padding: 12px 16px; }
+  .sec-section .info-label { display: block; margin-bottom: 6px; }
+  .info-text { font-size: 0.86rem; color: #333; line-height: 1.6; margin: 0; }
 
-.docs-list { display:flex;flex-direction:column;gap:8px;margin-bottom:14px; }
-.doc-row { display:flex;align-items:center;gap:10px;background:#f6fbf2;border:1px solid #cfe6c2;border-radius:10px;padding:8px 12px; }
-.doc-row > i { color:#c0392b;font-size:1.1rem;flex-shrink:0; }
-.doc-info { flex:1;display:flex;flex-direction:column;gap:1px;min-width:0; }
-.doc-info a { font-size:.83rem;font-weight:700;color:var(--verde);text-decoration:none; }
-.doc-info a:hover { text-decoration:underline; }
-.doc-meta { font-size:.7rem;color:var(--gris);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.doc-del { background:none;border:none;color:#bbb;font-size:.9rem;cursor:pointer;padding:4px;border-radius:6px;flex-shrink:0; }
-.doc-del:hover { background:#fdecec;color:#dc3545; }
-.doc-upload { display:flex;flex-wrap:wrap;gap:8px;align-items:center; }
-.doc-upload select { flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:.82rem;font-family:inherit; }
-.doc-upload input[type=file] { flex:1;min-width:160px;font-size:.78rem; }
-.doc-upload .btn-side-add { border:none;cursor:pointer;font-family:inherit;margin-top:0; }
-.doc-upload .btn-side-add:disabled { opacity:.6;cursor:not-allowed; }
-.link-ver { display:block;font-size:.82rem;color:var(--verde);font-weight:700;margin-bottom:8px;text-decoration:none; }
-.link-ver:hover { text-decoration:underline; }
-.btn-side-add {
-  display:flex;align-items:center;gap:6px;
-  background:var(--verde-claro);color:var(--verde);border-radius:8px;
-  padding:7px 14px;font-size:.8rem;font-weight:800;text-decoration:none;
-  transition:background .2s;margin-top:8px;
-}
-.btn-side-add:hover { background:#c8e6b0; }
+  .fotos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .foto-thumb {
+    border: none; background: none; padding: 0; cursor: pointer; border-radius: 10px; overflow: hidden;
+    aspect-ratio: 4/3; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .foto-thumb:hover { transform: scale(1.03); box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+  .foto-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* LIGHTBOX */
-.lightbox {
-  position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;
-  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;cursor:pointer;
-}
-.lb-close {
-  position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);
-  border:none;border-radius:50%;width:38px;height:38px;
-  display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;cursor:pointer;
-}
-.lightbox img { max-width:90vw;max-height:80vh;border-radius:8px;cursor:default; }
-.lb-caption { color:rgba(255,255,255,.8);font-size:.82rem; }
+  .empty-side { font-size: 0.83rem; color: #888; font-weight: 600; padding: 8px 0; margin: 0; }
+
+  .docs-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .doc-row { display: flex; align-items: center; gap: 12px; background: #f6fbf2; border: 1px solid #cfe6c2; border-radius: 10px; padding: 10px 14px; }
+  .doc-row > i { color: #c0392b; font-size: 1.2rem; flex-shrink: 0; }
+  .doc-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .doc-info a { font-size: 0.85rem; font-weight: 800; color: var(--verde, #1b5e20); text-decoration: none; }
+  .doc-info a:hover { text-decoration: underline; }
+  .doc-meta { font-size: 0.72rem; color: #666; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc-del { background: none; border: none; color: #aaa; font-size: 0.95rem; cursor: pointer; padding: 4px; border-radius: 6px; flex-shrink: 0; transition: all 0.2s; }
+  .doc-del:hover { background: #fdecec; color: #dc3545; }
+
+  .doc-upload { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #fafafa; padding: 12px; border-radius: 10px; border: 1px solid #eee; }
+  .doc-upload select { flex: 1; min-width: 180px; height: 38px; padding: 0 12px; border: 1.5px solid var(--borde, #ccc); border-radius: 8px; font-size: 0.83rem; font-family: inherit; }
+  .doc-upload input[type=file] { flex: 1; min-width: 160px; font-size: 0.78rem; }
+  
+  .convenios-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .conv-card { background: #fafdfa; border: 1px solid #edf5ee; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 5px; }
+  .conv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .conv-entidad { font-size: 0.84rem; font-weight: 800; color: #222; display: flex; align-items: center; gap: 6px; }
+  .conv-entidad i { color: var(--verde, #1b5e20); }
+  .conv-badge { font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; }
+  .conv-badge.vigente { background: #e8f5e9; color: #1b7505; }
+  .conv-badge.vencido { background: #ffebee; color: #c0392b; }
+  .conv-memo { font-size: 0.76rem; color: #555; font-weight: 700; }
+  .conv-dates { font-size: 0.72rem; color: #777; font-weight: 600; }
+
+  .btn-side-add {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    background: #f0f4f1; color: var(--verde, #1b5e20); border-radius: 9px; border: none;
+    padding: 10px 18px; font-size: 0.83rem; font-weight: 800; text-decoration: none; cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-side-add:hover { background: #e2ede4; }
+  .btn-side-add.primary { background: var(--verde, #1b5e20); color: #fff; box-shadow: 0 3px 10px rgba(27, 94, 32, 0.18); }
+  .btn-side-add.primary:hover:not(:disabled) { background: #134217; }
+  .btn-side-add.block { width: 100%; box-sizing: border-box; }
+
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 9999;
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; cursor: pointer;
+    backdrop-filter: blur(3px);
+  }
+  .lb-close {
+    position: absolute; top: 16px; right: 16px; background: rgba(255, 255, 255, 0.15);
+    border: none; border-radius: 50%; width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem; cursor: pointer;
+  }
+  .lightbox img { max-width: 90vw; max-height: 80vh; border-radius: 10px; cursor: default; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .lb-caption { color: #fff; font-size: 0.9rem; font-weight: 700; margin: 0; }
 </style>

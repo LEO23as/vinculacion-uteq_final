@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   import { onMount } from 'svelte';
   import { fetchAPI } from '$lib/stores';
 
@@ -33,8 +33,9 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <span class="current">Períodos Académicos</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <span class="current">Períodos Académicos</span>
   </nav>
   <a href="/periodos/nuevo" class="btn-nuevo"><i class="bi bi-plus-lg"></i> Nuevo período</a>
 </div>

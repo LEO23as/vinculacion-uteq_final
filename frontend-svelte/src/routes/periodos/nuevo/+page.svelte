@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   import { goto } from '$app/navigation';
   import WizardEstructura from '$lib/WizardEstructura.svelte';
 
@@ -48,9 +48,11 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <a href="/periodos">Períodos</a><span class="sep">/</span>
-    <span class="current">Nuevo</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <a href="/periodos">Períodos Académicos</a>
+    <span class="sep">/</span>
+    <span class="current">Nuevo período</span>
   </nav>
 </div>
 

@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
@@ -54,9 +54,11 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <a href="/convenios">Convenios</a><span class="sep">/</span>
-    <span class="current">Nuevo</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <a href="/convenios">Convenios</a>
+    <span class="sep">/</span>
+    <span class="current">Nuevo convenio</span>
   </nav>
 </div>
 

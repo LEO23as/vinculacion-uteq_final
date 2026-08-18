@@ -100,9 +100,11 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <a href="/configuracion">Configuración</a><span class="sep">/</span>
-    <span class="current">Capas del mapa</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <a href="/configuracion">Configuración</a>
+    <span class="sep">/</span>
+    <span class="current">Capas del mapa</span>
   </nav>
 </div>
 

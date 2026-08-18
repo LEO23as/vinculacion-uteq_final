@@ -18,6 +18,17 @@
   let modalDocsLoad = $state(false);
   let docAbierto = $state(null);    // {url, nombre, extension}
 
+  const API_BASE = 'http://127.0.0.1:8000';
+  function extractUrl(item) {
+    if (!item) return '';
+    let url = typeof item === 'string' ? item : (item.url || item.ruta_foto || item.foto_url || item.src || '');
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+    if (!url.startsWith('/')) url = '/' + url;
+    if (!url.startsWith('/media/')) url = '/media' + url;
+    return url;
+  }
+
   async function cargarDocumentos(id) {
     modalDocs = []; modalDocsLoad = true;
     try {
@@ -272,8 +283,9 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <span class="current">Mapa</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <span class="current">Mapa interactivo</span>
   </nav>
 </div>
 
@@ -285,28 +297,28 @@
       <div class="filtros-inner">
 
         <select class="fsel" bind:value={filtros.facultad} onchange={() => { filtros.carrera=''; }}>
-          <option value="">Facultad</option>
+          <option value="">Facultad (Todas)</option>
           {#each facultades as f}
             <option value={f.id_facultad}>{f.nombre_corto || f.nombre}</option>
           {/each}
         </select>
 
         <select class="fsel" bind:value={filtros.carrera}>
-          <option value="">Carrera</option>
+          <option value="">Carrera (Todas)</option>
           {#each carrerasFiltradas as c}
             <option value={c.id_carrera}>{c.nombre}</option>
           {/each}
         </select>
 
         <select class="fsel" bind:value={filtros.periodo}>
-          <option value="">Período</option>
+          <option value="">Período (Todos)</option>
           {#each periodos as p}
             <option value={p.id_periodo}>{p.nombre}</option>
           {/each}
         </select>
 
         <select class="fsel" bind:value={filtros.estado}>
-          <option value="">Estado</option>
+          <option value="">Estado (Todos)</option>
           {#each ESTADOS as e}
             <option value={e.val}>{e.label}</option>
           {/each}
@@ -321,10 +333,10 @@
 
         <div class="buscar-wrap">
           <i class="bi bi-search buscar-ico"></i>
-          <input class="fbuscar" bind:value={filtros.buscar} placeholder="Buscar..." />
+          <input class="fbuscar" bind:value={filtros.buscar} placeholder="Buscar proyecto..." />
         </div>
 
-        <button class="btn-quevedo" onclick={centrarEnQuevedo} title="Centrar en Quevedo">
+        <button class="btn-quevedo" onclick={centrarEnQuevedo} title="Centrar mapa en Quevedo">
           <i class="bi bi-geo-alt-fill"></i> Quevedo
         </button>
 
@@ -339,23 +351,34 @@
         {/if}
 
         <div class="factions">
-          <span class="total-badge">{total} proy.</span>
+          <span class="total-badge"><i class="bi bi-pin-map-fill"></i> {total} proy.</span>
           <button class="btn-limpiar" onclick={limpiar}>Limpiar</button>
-          <button class="btn-filtrar" onclick={filtrar}>Filtrar</button>
+          <button class="btn-filtrar" onclick={filtrar}><i class="bi bi-funnel-fill"></i> Filtrar</button>
         </div>
 
       </div>
     </div>
 
-    <!-- MAPA -->
-    <div id="map" style="flex:1;width:100%;min-height:300px;"></div>
+    <!-- MAPA CON WIDGET HUD FLOTANTE -->
+    <div class="map-container-wrap">
+      <div id="map" style="width:100%;height:100%;"></div>
+
+      <div class="map-hud-bar">
+        <div class="hud-item"><i class="bi bi-geo-alt-fill text-verde"></i> <strong>{total}</strong> Proyectos ubicados</div>
+        <div class="hud-sep"></div>
+        <div class="hud-item"><i class="bi bi-building"></i> <strong>{facultades.length}</strong> Facultades UTEQ</div>
+        <div class="hud-sep"></div>
+        <div class="hud-item"><i class="bi bi-crosshair"></i> <strong>Quevedo</strong> (Sede Central)</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- MODAL -->
 {#if proySeleccionado}
   {@const p = proySeleccionado}
-  {@const fotos = (p.fotos && p.fotos.length ? p.fotos : (p.foto_url ? [p.foto_url] : []))}
+  {@const fotosRaw = (p.fotos && p.fotos.length ? p.fotos : (p.foto_url ? [p.foto_url] : []))}
+  {@const fotos = fotosRaw.map(extractUrl).filter(Boolean)}
   {@const TABS = [
     { id:'general',    label:'General',    icon:'bi-info-circle' },
     { id:'ubicacion',  label:'Ubicación',  icon:'bi-geo-alt' },
@@ -378,7 +401,7 @@
                 <img
                   src={fotos[fotoActiva]}
                   alt="Foto {fotoActiva+1}"
-                  onerror={(e) => { e.currentTarget.style.display='none'; e.currentTarget.parentElement.querySelector('.msp-fallback').style.display='flex'; }}
+                  onerror={(e) => { e.currentTarget.style.display='none'; if (e.currentTarget.parentElement.querySelector('.msp-fallback')) e.currentTarget.parentElement.querySelector('.msp-fallback').style.display='flex'; }}
                 />
               {/key}
               <div class="msp-fallback" style="display:none">
@@ -680,6 +703,35 @@
 .btn-filtrar:hover { background: #155e04; }
 
 /* ── MAPA ── */
+.map-container-wrap {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+.map-hud-bar {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(27, 94, 32, 0.18);
+  border-radius: 12px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  font-size: 0.78rem;
+  color: #333;
+}
+.hud-item { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.hud-item strong { color: var(--verde, #1b5e20); font-weight: 800; }
+.hud-sep { width: 1px; height: 14px; background: #cbd5e1; }
+
 :global(#map) { flex: 1; width: 100%; min-height: 300px; }
 :global(.leaflet-container) { font-family: 'Nunito', sans-serif; }
 :global(.leaflet-tooltip) { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: .78rem; }

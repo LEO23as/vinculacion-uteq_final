@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Sum
 from django.db.models.functions import ExtractYear
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
@@ -2263,34 +2263,79 @@ def api_reportes_stats(request):
     if not _require_auth(request):
         return JsonResponse({'error': 'No autenticado'}, status=401)
 
-    total_proyectos = Proyecto.objects.count()
+    periodo_id = request.GET.get('periodo')
+    qs_proyectos = Proyecto.objects.all()
+    if periodo_id:
+        qs_proyectos = qs_proyectos.filter(id_periodo_inicio_id=periodo_id)
+
+    total_proyectos = qs_proyectos.count()
     total_entidades = EntidadCooperante.objects.filter(activo=True).count()
     total_convenios = Convenio.objects.count()
-    con_geo = Proyecto.objects.filter(latitud__isnull=False, longitud__isnull=False).count()
+    con_geo = qs_proyectos.filter(latitud__isnull=False, longitud__isnull=False).count()
 
+    # Presupuesto acumulado
+    presupuesto_total = float(qs_proyectos.aggregate(total=Sum('presupuesto_planificado'))['total'] or 0)
+
+    # Estados
     estados_count = {}
-    for e in Proyecto.objects.values('estado').annotate(c=Count('estado')):
+    for e in qs_proyectos.values('estado').annotate(c=Count('estado')):
         estados_count[e['estado']] = e['c']
 
+    # Facultades
     por_facultad = list(
-        Proyecto.objects.values('id_facultad__nombre_corto', 'id_facultad__nombre')
+        qs_proyectos.values('id_facultad__nombre_corto', 'id_facultad__nombre')
         .annotate(c=Count('id_proyecto'))
         .order_by('-c')[:10]
     )
     por_facultad_data = {
-        'labels': [x['id_facultad__nombre_corto'] or x['id_facultad__nombre'] for x in por_facultad],
+        'labels': [(x['id_facultad__nombre_corto'] or x['id_facultad__nombre'] or 'Sin facultad') for x in por_facultad],
         'values': [x['c'] for x in por_facultad],
     }
 
-    por_provincia = list(
-        Proyecto.objects.exclude(provincia__isnull=True).exclude(provincia='')
-        .values('provincia').annotate(c=Count('id_proyecto')).order_by('-c')[:10]
+    # Carreras
+    por_carrera = list(
+        qs_proyectos.values('id_carrera__nombre')
+        .annotate(c=Count('id_proyecto'))
+        .order_by('-c')[:8]
     )
+    por_carrera_data = {
+        'labels': [x['id_carrera__nombre'] or 'Sin carrera' for x in por_carrera],
+        'values': [x['c'] for x in por_carrera],
+    }
 
-    por_canton = list(
-        Proyecto.objects.exclude(canton__isnull=True).exclude(canton='')
-        .values('canton').annotate(c=Count('id_proyecto')).order_by('-c')[:8]
-    )
+    # Provincias (Proyectos + ProyectoUbicacion)
+    provs_dict = {}
+    for p in qs_proyectos.prefetch_related('proyectoubicacion_set'):
+        prov = p.provincia
+        if prov and prov != 'N/D':
+            provs_dict[prov] = provs_dict.get(prov, 0) + 1
+        for u in p.proyectoubicacion_set.all():
+            if u.provincia and u.provincia != 'N/D' and u.provincia != prov:
+                provs_dict[u.provincia] = provs_dict.get(u.provincia, 0) + 1
+
+    provs_sorted = sorted(provs_dict.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    # Cantones
+    cantons_dict = {}
+    for p in qs_proyectos.prefetch_related('proyectoubicacion_set'):
+        c = p.canton
+        if c:
+            cantons_dict[c] = cantons_dict.get(c, 0) + 1
+        for u in p.proyectoubicacion_set.all():
+            if u.canton and u.canton != c:
+                cantons_dict[u.canton] = cantons_dict.get(u.canton, 0) + 1
+
+    cantons_sorted = sorted(cantons_dict.items(), key=lambda x: x[1], reverse=True)[:8]
+
+    # ODS Stats
+    ods_dict = {}
+    for p in qs_proyectos:
+        if p.ods:
+            tags = [t.strip() for t in p.ods.split(',') if t.strip()]
+            for t in tags:
+                ods_dict[t] = ods_dict.get(t, 0) + 1
+
+    ods_sorted = sorted(ods_dict.items(), key=lambda x: x[1], reverse=True)[:10]
 
     convenios_estados = {}
     for e in Convenio.objects.values('estado').annotate(c=Count('id_convenio')):
@@ -2301,14 +2346,14 @@ def api_reportes_stats(request):
     )
 
     por_periodo = list(
-        Proyecto.objects.values('id_periodo_inicio__nombre', 'id_periodo_inicio__codigo')
+        qs_proyectos.values('id_periodo_inicio__nombre', 'id_periodo_inicio__codigo')
         .annotate(c=Count('id_proyecto')).order_by('-c')[:8]
     )
 
     ultimos = list(
-        Proyecto.objects.select_related('id_facultad', 'id_periodo_inicio')
+        qs_proyectos.select_related('id_facultad', 'id_periodo_inicio')
         .order_by('-creado_en')[:10]
-        .values('id_proyecto', 'codigo', 'nombre', 'id_facultad__nombre_corto', 'id_periodo_inicio__nombre', 'estado')
+        .values('id_proyecto', 'codigo', 'nombre', 'id_facultad__nombre_corto', 'id_facultad__nombre', 'id_periodo_inicio__nombre', 'estado')
     )
 
     en_ejecucion = estados_count.get('EN_EJECUCION', 0)
@@ -2322,33 +2367,43 @@ def api_reportes_stats(request):
             'total_convenios': total_convenios,
             'con_geo': con_geo,
             'finalizado': finalizado,
+            'presupuesto_total': presupuesto_total,
+            'cantones_cobertura': len(cantons_dict),
+            'provincias_cobertura': len(provs_dict),
             'pct_ejecucion': round(en_ejecucion * 100 / total_proyectos, 1) if total_proyectos else 0,
             'pct_finalizado': round(finalizado * 100 / total_proyectos, 1) if total_proyectos else 0,
         },
         'estados': estados_count,
         'por_facultad': por_facultad_data,
+        'por_carrera': por_carrera_data,
         'por_provincia': {
-            'labels': [x['provincia'] for x in por_provincia],
-            'values': [x['c'] for x in por_provincia],
+            'labels': [x[0] for x in provs_sorted],
+            'values': [x[1] for x in provs_sorted],
         },
         'por_canton': {
-            'labels': [x['canton'] for x in por_canton],
-            'values': [x['c'] for x in por_canton],
+            'labels': [x[0] for x in cantons_sorted],
+            'values': [x[1] for x in cantons_sorted],
+        },
+        'por_ods': {
+            'labels': [x[0] for x in ods_sorted],
+            'values': [x[1] for x in ods_sorted],
         },
         'convenios_estados': convenios_estados,
         'entidades_tipos': {
-            'labels': [x['id_tipo__nombre'] for x in entidades_tipos],
+            'labels': [x['id_tipo__nombre'] or 'Sin tipo' for x in entidades_tipos],
             'values': [x['c'] for x in entidades_tipos],
         },
         'por_periodo': {
-            'labels': [x['id_periodo_inicio__codigo'] or x['id_periodo_inicio__nombre'] for x in por_periodo],
+            'labels': [x['id_periodo_inicio__codigo'] or x['id_periodo_inicio__nombre'] or 'Período' for x in por_periodo],
             'values': [x['c'] for x in por_periodo],
         },
         'ultimos_proyectos': [
             {
-                'id': x['id_proyecto'], 'codigo': x['codigo'], 'nombre': x['nombre'],
-                'facultad': x['id_facultad__nombre_corto'],
-                'periodo': x['id_periodo_inicio__nombre'],
+                'id': x['id_proyecto'],
+                'codigo': x['codigo'],
+                'nombre': x['nombre'],
+                'facultad': x['id_facultad__nombre_corto'] or x['id_facultad__nombre'] or 'N/A',
+                'periodo': x['id_periodo_inicio__nombre'] or 'N/A',
                 'estado': x['estado'],
             } for x in ultimos
         ],

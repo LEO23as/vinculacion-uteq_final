@@ -104,67 +104,85 @@
       <div class="modal-body">
         <div class="sec">
           <div class="entidad-toggle">
-            <button type="button" class:activo={!nuevaEntidad} onclick={() => nuevaEntidad = false}>Entidad existente</button>
-            <button type="button" class:activo={nuevaEntidad} onclick={() => nuevaEntidad = true}>+ Nueva entidad</button>
+            <button type="button" class:activo={!nuevaEntidad} onclick={() => nuevaEntidad = false}>
+              <i class="bi bi-building"></i> Entidad existente
+            </button>
+            <button type="button" class:activo={nuevaEntidad} onclick={() => nuevaEntidad = true}>
+              <i class="bi bi-plus-circle"></i> + Nueva entidad
+            </button>
           </div>
 
           {#if !nuevaEntidad}
-            <div class="grid-row">
-              <div class="field col-12">
-                <label>Entidad Cooperante *</label>
-                <select bind:value={form.id_entidad}>
-                  <option value="">— Seleccionar entidad —</option>
-                  {#each entidades as e}<option value={e.id_entidad}>{e.nombre}</option>{/each}
-                </select>
-              </div>
+            <div class="field full-width">
+              <label>Entidad Cooperante *</label>
+              <select bind:value={form.id_entidad}>
+                <option value="">— Seleccionar entidad cooperante —</option>
+                {#each entidades as e}<option value={e.id_entidad}>{e.nombre} {e.ruc ? `(${e.ruc})` : ''}</option>{/each}
+              </select>
             </div>
           {:else}
-            <div class="grid-row">
-              <div class="field col-7"><label>Nombre completo *</label><input bind:value={entidadForm.nombre} placeholder="Nombre de la entidad..." /></div>
-              <div class="field col-5">
+            <div class="grid-3 mb-12">
+              <div class="field col-span-2">
+                <label>Nombre completo de la Entidad *</label>
+                <input bind:value={entidadForm.nombre} placeholder="Ej. Gobierno Autónomo Descentralizado..." />
+              </div>
+              <div class="field">
                 <label>Tipo de entidad *</label>
                 <select bind:value={entidadForm.id_tipo}>
                   <option value="">— Seleccionar —</option>
                   {#each tipos as t}<option value={t.id_tipo}>{t.nombre}</option>{/each}
                 </select>
               </div>
-              <div class="field col-4"><label>RUC</label><input bind:value={entidadForm.ruc} maxlength="15" /></div>
-              <div class="field col-4"><label>Teléfono</label><input bind:value={entidadForm.telefono} /></div>
-              <div class="field col-4"><label>Correo</label><input type="email" bind:value={entidadForm.correo} /></div>
+            </div>
+            <div class="grid-3">
+              <div class="field"><label>RUC</label><input bind:value={entidadForm.ruc} placeholder="Ej. 1291823912001" maxlength="15" /></div>
+              <div class="field"><label>Teléfono</label><input bind:value={entidadForm.telefono} placeholder="Ej. 0991234567" /></div>
+              <div class="field"><label>Correo Electrónico</label><input type="email" bind:value={entidadForm.correo} placeholder="contacto@entidad.gob.ec" /></div>
             </div>
           {/if}
         </div>
 
         <div class="sec">
-          <div class="grid-row">
-            <div class="field col-4">
+          <div class="grid-3">
+            <div class="field">
               <label>Período Académico</label>
               <select bind:value={form.id_periodo}>
-                <option value="">— Seleccionar —</option>
-                {#each periodos as p}<option value={p.id_periodo}>{p.nombre}</option>{/each}
+                <option value="">— Seleccionar período —</option>
+                {#each periodos as p}<option value={p.id_periodo}>{p.nombre || p.codigo}</option>{/each}
               </select>
             </div>
-            <div class="field col-4"><label>N° Memorando</label><input bind:value={form.numero_memorando} placeholder="VCL-2025-001" /></div>
-            <div class="field col-4">
-              <label>Estado *</label>
-              <select bind:value={form.estado}>{#each ESTADOS as e}<option value={e}>{e}</option>{/each}</select>
+            <div class="field">
+              <label>N° Memorando / Código</label>
+              <input bind:value={form.numero_memorando} placeholder="Ej. VCL-2025-001" />
+            </div>
+            <div class="field">
+              <label>Estado del Convenio *</label>
+              <select bind:value={form.estado}>
+                {#each ESTADOS as e}<option value={e}>{e}</option>{/each}
+              </select>
             </div>
           </div>
         </div>
 
         <div class="sec">
-          <div class="grid-row">
-            <div class="field col-3"><label>Fecha de firma</label><input type="date" bind:value={form.fecha_firma} /></div>
-            <div class="field col-3"><label>Fecha de inicio</label><input type="date" bind:value={form.fecha_inicio} /></div>
-            <div class="field col-3"><label>Fecha de fin</label><input type="date" bind:value={form.fecha_fin} /></div>
-            <div class="field col-3"><label>Duración (años)</label><input type="number" min="1" max="10" bind:value={form.duracion_anios} /></div>
+          <div class="grid-4">
+            <div class="field"><label>Fecha de firma</label><input type="date" bind:value={form.fecha_firma} /></div>
+            <div class="field"><label>Fecha de inicio</label><input type="date" bind:value={form.fecha_inicio} /></div>
+            <div class="field"><label>Fecha de fin</label><input type="date" bind:value={form.fecha_fin} /></div>
+            <div class="field"><label>Duración (años)</label><input type="number" min="1" max="10" bind:value={form.duracion_anios} /></div>
           </div>
         </div>
 
-        <div class="sec">
-          <div class="grid-row">
-            <div class="field col-3"><label>Estudiantes asignados</label><input type="number" min="0" bind:value={form.estudiantes_asignados} /></div>
-            <div class="field col-9"><label>Observaciones</label><textarea rows="2" bind:value={form.observaciones}></textarea></div>
+        <div class="sec no-border">
+          <div class="grid-obs">
+            <div class="field">
+              <label>Estudiantes asignados</label>
+              <input type="number" min="0" bind:value={form.estudiantes_asignados} placeholder="0" />
+            </div>
+            <div class="field">
+              <label>Observaciones del convenio</label>
+              <textarea rows="3" bind:value={form.observaciones} placeholder="Detalles u observaciones adicionales del convenio..."></textarea>
+            </div>
           </div>
         </div>
       </div>
@@ -180,42 +198,84 @@
 {/if}
 
 <style>
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; padding: 20px;
+  }
   .modal-card {
-    background:#fff; border-radius:16px; max-width:720px; width:100%; max-height:88vh;
-    box-shadow:0 8px 32px rgba(0,0,0,.18);
-    display:flex; flex-direction:column; overflow:hidden;
+    background: #fff; border-radius: 16px; max-width: 860px; width: 100%; max-height: 90vh;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+    display: flex; flex-direction: column; overflow: hidden;
   }
   .modal-hdr {
-    display:flex; align-items:center; justify-content:space-between; padding:18px 22px;
-    background:var(--verde); color:#fff; border-radius:16px 16px 0 0; flex-shrink:0;
+    display: flex; align-items: center; justify-content: space-between; padding: 16px 24px;
+    background: var(--verde, #1b5e20); color: #fff; border-radius: 16px 16px 0 0; flex-shrink: 0;
   }
-  .modal-hdr h3 { font-size:1rem; font-weight:900; display:flex; align-items:center; gap:8px; color:#fff; }
-  .modal-hdr h3 i { color:#fff; }
-  .modal-close { background:none; border:none; color:#fff; font-size:1rem; cursor:pointer; padding:6px; border-radius:8px; opacity:.85; }
-  .modal-close:hover { background:rgba(255,255,255,.18); opacity:1; }
-  .modal-body { padding:18px 22px; overflow-y:auto; min-height:0; }
-  .modal-actions { display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid var(--borde); flex-shrink:0; }
+  .modal-hdr h3 { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 10px; color: #fff; margin: 0; }
+  .modal-close { background: none; border: none; color: #fff; font-size: 1.1rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; opacity: 0.85; transition: all 0.2s; }
+  .modal-close:hover { background: rgba(255, 255, 255, 0.2); opacity: 1; }
+  
+  .modal-body { padding: 22px 26px; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 18px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 26px; background: #fafafa; border-top: 1px solid var(--borde, #e0e0e0); flex-shrink: 0; }
 
-  .entidad-toggle { display:flex; gap:8px; margin-bottom:14px; }
+  .sec { border-bottom: 1px solid #f0f0f0; padding-bottom: 16px; }
+  .sec.no-border { border-bottom: none; padding-bottom: 0; }
+
+  .entidad-toggle {
+    display: flex; gap: 6px; background: #f0f4f1; padding: 4px; border-radius: 10px; margin-bottom: 16px;
+  }
   .entidad-toggle button {
-    flex:1; padding:9px 12px; border:1.5px solid var(--borde); border-radius:9px;
-    background:#fff; font-family:inherit; font-size:.82rem; font-weight:700; color:#666; cursor:pointer;
-    transition:all .15s;
+    flex: 1; padding: 9px 14px; border: none; border-radius: 7px;
+    background: transparent; font-family: inherit; font-size: 0.84rem; font-weight: 700; color: #555; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.2s ease;
   }
-  .entidad-toggle button:hover { border-color:var(--verde); }
-  .entidad-toggle button.activo { border-color:var(--verde); background:var(--verde-claro); color:var(--verde); }
+  .entidad-toggle button:hover { color: var(--verde, #1b5e20); }
+  .entidad-toggle button.activo { background: #fff; color: var(--verde, #1b5e20); box-shadow: 0 2px 6px rgba(0,0,0,0.08); font-weight: 800; }
 
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 16px; width: 100%; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 16px; width: 100%; }
+  .grid-obs { display: grid; grid-template-columns: 1fr 3fr; gap: 14px 16px; width: 100%; align-items: flex-start; }
+  .mb-12 { margin-bottom: 12px; }
+  .col-span-2 { grid-column: span 2; }
+  .full-width { width: 100%; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 0.73rem; font-weight: 800; color: #444; text-transform: uppercase; letter-spacing: 0.04em; }
+  .field input:not([type="file"]), .field select {
+    height: 42px; border: 1.5px solid var(--borde, #ccc); border-radius: 9px;
+    padding: 0 14px; font-size: 0.86rem; font-family: inherit; outline: none; background: #fff;
+    width: 100%; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field textarea {
+    border: 1.5px solid var(--borde, #ccc); border-radius: 9px;
+    padding: 10px 14px; font-size: 0.86rem; font-family: inherit; outline: none; background: #fff;
+    width: 100%; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s;
+    resize: vertical; min-height: 80px;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--verde, #1b5e20);
+    box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.12);
+  }
+
+  .btn-cancel {
+    background: #fff; border: 1.5px solid var(--borde, #ccc); border-radius: 9px;
+    padding: 10px 22px; font-size: 0.85rem; font-weight: 700; color: #555; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-cancel:hover { background: #f5f5f5; color: #333; }
   .btn-registrar {
-    background:var(--verde); color:#fff; border:none; border-radius:9px;
-    padding:10px 26px; font-size:.85rem; font-weight:800; cursor:pointer;
-    display:flex; align-items:center; gap:8px; transition:background .2s;
+    background: var(--verde, #1b5e20); color: #fff; border: none; border-radius: 9px;
+    padding: 10px 26px; font-size: 0.85rem; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; transition: background 0.2s;
   }
-  .btn-registrar:hover:not(:disabled) { background:var(--verde2); }
-  .btn-registrar:disabled { opacity:.65; cursor:not-allowed; }
+  .btn-registrar:hover:not(:disabled) { background: #134217; }
+  .btn-registrar:disabled { opacity: 0.65; cursor: not-allowed; }
 
-  .alert-error { margin:0 22px; margin-top:14px; }
+  .alert-error { margin: 0 26px; margin-top: 16px; background: #fff0f0; border: 1px solid #ffc9c9; color: #c0392b; border-radius: 9px; padding: 10px 14px; font-size: 0.83rem; font-weight: 700; }
 
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .spin { display:inline-block; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; animation: spin 0.7s linear infinite; }
 </style>

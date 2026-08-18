@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
@@ -62,9 +62,11 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <a href="/periodos">Períodos</a><span class="sep">/</span>
-    <span class="current">Editar</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <a href="/periodos">Períodos Académicos</a>
+    <span class="sep">/</span>
+    <span class="current">Editar período</span>
   </nav>
 </div>
 

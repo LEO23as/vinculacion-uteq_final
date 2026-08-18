@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { fetchAPI } from '$lib/stores';
@@ -74,7 +74,7 @@
   <nav class="breadcrumb">
     <a href="/dashboard">Inicio</a>
     <span class="sep">/</span>
-    <span class="current">Proyectos</span><span class="sep">/</span>
+    <span class="current">Proyectos</span>
   </nav>
   <a href="/proyectos/nuevo" class="btn-nuevo">
     <i class="bi bi-plus-lg"></i> Nuevo proyecto

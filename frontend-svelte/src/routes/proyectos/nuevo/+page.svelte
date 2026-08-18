@@ -172,27 +172,30 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <a href="/proyectos">Proyectos</a><span class="sep">/</span>
-    <span class="current">Nuevo</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <a href="/proyectos">Proyectos</a>
+    <span class="sep">/</span>
+    <span class="current">Nuevo proyecto</span>
   </nav>
 </div>
 
 <div class="form-wrap">
-  <!-- INDICADOR DE PASOS -->
-  <div class="stepper">
-    {#each PASOS as p}
-      <div class="step" class:activo={paso === p.n} class:hecho={paso > p.n}>
-        <div class="step-circle">
-          {#if paso > p.n}<i class="bi bi-check-lg"></i>{:else}{p.n}{/if}
-        </div>
-        <span class="step-label">{p.label}</span>
-      </div>
-      {#if p.n < 3}<div class="step-line" class:hecho={paso > p.n}></div>{/if}
-    {/each}
-  </div>
-
   <div class="form-card">
+    <!-- INDICADOR DE PASOS -->
+    <div class="stepper">
+      {#each PASOS as p}
+        <div class="step" class:activo={paso === p.n} class:hecho={paso > p.n}>
+          <div class="step-circle">
+            {#if paso > p.n}<i class="bi bi-check-lg"></i>{:else}{p.n}{/if}
+          </div>
+          <span class="step-label">{p.label}</span>
+        </div>
+        {#if p.n < 3}<div class="step-line" class:hecho={paso > p.n}></div>{/if}
+      {/each}
+    </div>
+    <div class="stepper-divider"></div>
+
     {#if error}<div class="alert-error">{error}</div>{/if}
 
     <!-- ══════════ PASO 1: FICHA ══════════ -->
@@ -200,7 +203,7 @@
       <h2 class="form-title"><i class="bi bi-clipboard-data"></i> Datos del proyecto</h2>
 
       <div class="sec">
-        <h4 class="sec-hdr">Identificación</h4>
+        <h4 class="sec-hdr"><i class="bi bi-card-text"></i> Identificación</h4>
         <div class="grid-row">
           <div class="field col-12">
             <label>Título del proyecto *</label>
@@ -215,27 +218,27 @@
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Clasificación</h4>
-        <div class="grid-row">
-          <div class="field col-6"><label>Línea de investigación</label><input bind:value={form.linea_vinculacion} placeholder="Agricultura, Silvicultura y Producción animal" /></div>
-          <div class="field col-6"><label>Programa</label><input bind:value={form.programa} placeholder="Gestión de proyectos de vinculación con la sociedad" /></div>
-          <div class="field col-6"><label>Campo amplio</label><input bind:value={form.area_conocimiento} placeholder="Agricultura, Silvicultura, Pesca y Veterinaria" /></div>
-          <div class="field col-6"><label>Campo específico</label><input bind:value={form.sub_area_conocimiento} placeholder="Agricultura" /></div>
+        <h4 class="sec-hdr"><i class="bi bi-diagram-3"></i> Clasificación</h4>
+        <div class="grid-2">
+          <div class="field"><label>Línea de investigación</label><input bind:value={form.linea_vinculacion} placeholder="Agricultura, Silvicultura y Producción animal" /></div>
+          <div class="field"><label>Programa</label><input bind:value={form.programa} placeholder="Gestión de proyectos de vinculación con la sociedad" /></div>
+          <div class="field"><label>Campo amplio</label><input bind:value={form.area_conocimiento} placeholder="Agricultura, Silvicultura, Pesca y Veterinaria" /></div>
+          <div class="field"><label>Campo específico</label><input bind:value={form.sub_area_conocimiento} placeholder="Agricultura" /></div>
         </div>
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Datos académicos</h4>
-        <div class="grid-row">
-          <div class="field col-3">
+        <h4 class="sec-hdr"><i class="bi bi-mortarboard"></i> Datos académicos y responsables</h4>
+        <div class="grid-3 mb-12">
+          <div class="field">
             <label>Período *</label>
             <select bind:value={form.id_periodo_inicio} onchange={onPeriodoChange}>
               <option value="">— Seleccionar —</option>
-              {#each periodos as p}<option value={p.id_periodo}>{p.codigo}</option>{/each}
+              {#each periodos as p}<option value={p.id_periodo}>{p.codigo || p.nombre}</option>{/each}
             </select>
             <small>Define la estructura histórica</small>
           </div>
-          <div class="field col-5">
+          <div class="field">
             <label>Facultad *</label>
             <select bind:value={form.id_facultad} onchange={onFacultadChange} disabled={!form.id_periodo_inicio}>
               <option value="">{form.id_periodo_inicio ? '— Seleccionar —' : '— Elija período primero —'}</option>
@@ -244,16 +247,18 @@
               {/each}
             </select>
           </div>
-          <div class="field col-4">
+          <div class="field">
             <label>Carrera *</label>
             <select bind:value={form.id_carrera} disabled={!carrerasFil.length}>
               <option value="">— Seleccionar facultad primero —</option>
               {#each carrerasFil as c}<option value={c.id_carrera}>{c.nombre}</option>{/each}
             </select>
           </div>
-          <div class="field col-5"><label>Director del proyecto</label><input bind:value={form.director_nombre} placeholder="Ing. Moisés Menace, MSc." /></div>
-          <div class="field col-4"><label>Correo del director</label><input type="email" bind:value={form.director_correo} placeholder="mmenace@uteq.edu.ec" /></div>
-          <div class="field col-3">
+        </div>
+        <div class="grid-3">
+          <div class="field"><label>Director del proyecto</label><input bind:value={form.director_nombre} placeholder="Ing. Moisés Menace, MSc." /></div>
+          <div class="field"><label>Correo del director</label><input type="email" bind:value={form.director_correo} placeholder="mmenace@uteq.edu.ec" /></div>
+          <div class="field">
             <label>Estado *</label>
             <select bind:value={form.estado}>{#each ESTADOS as e}<option value={e}>{ESTADOS_LABEL[e]}</option>{/each}</select>
           </div>
@@ -261,22 +266,24 @@
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Objetivo y fechas</h4>
-        <div class="grid-row">
+        <h4 class="sec-hdr"><i class="bi bi-calendar3"></i> Objetivo y fechas</h4>
+        <div class="grid-row mb-12">
           <div class="field col-12"><label>Objetivo general</label><textarea rows="2" bind:value={form.objetivo_general} placeholder="Elaborar abonos orgánicos para producir huertos hortícolas…"></textarea></div>
-          <div class="field col-4"><label>Fecha de inicio</label><input type="date" bind:value={form.fecha_inicio} /></div>
-          <div class="field col-4"><label>Fecha de finalización</label><input type="date" bind:value={form.fecha_fin_planificada} /></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label>Fecha de inicio</label><input type="date" bind:value={form.fecha_inicio} /></div>
+          <div class="field"><label>Fecha de finalización</label><input type="date" bind:value={form.fecha_fin_planificada} /></div>
         </div>
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Presupuesto y negociación</h4>
-        <div class="grid-row">
-          <div class="field col-4">
+        <h4 class="sec-hdr"><i class="bi bi-cash-coin"></i> Presupuesto y negociación</h4>
+        <div class="grid-obs">
+          <div class="field">
             <label>Presupuesto planificado (USD)</label>
             <input type="number" min="0" step="0.01" bind:value={form.presupuesto_planificado} placeholder="0.00" />
           </div>
-          <div class="field col-8">
+          <div class="field">
             <label>Términos de negociación</label>
             <textarea rows="2" bind:value={form.terminos_negociacion} placeholder="Condiciones acordadas con la entidad cooperante, aportes, contrapartes…"></textarea>
           </div>
@@ -284,7 +291,7 @@
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Planificación de actividades <span class="sec-note">— opcional, puedes subirla después</span></h4>
+        <h4 class="sec-hdr"><i class="bi bi-list-task"></i> Planificación de actividades <span class="sec-note">— opcional, puedes subirla después</span></h4>
         {#if planFile}
           <label class="drop-zone doc">
             <input type="file" accept="application/pdf,image/*" onchange={pickPlan} />
@@ -307,17 +314,17 @@
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Objetivos de Desarrollo Sostenible (ODS) <span class="sec-note">— marca los que atiende el proyecto</span></h4>
+        <h4 class="sec-hdr"><i class="bi bi-globe"></i> Objetivos de Desarrollo Sostenible (ODS) <span class="sec-note">— marca los que atiende el proyecto</span></h4>
         <OdsPicker bind:seleccionados={odsSeleccionados} />
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Ubicación geográfica <span class="sec-note">— busca o marca en el mapa dónde se ejecuta (uno o varios lugares)</span></h4>
+        <h4 class="sec-hdr"><i class="bi bi-geo-alt"></i> Ubicación geográfica <span class="sec-note">— busca o marca en el mapa dónde se ejecuta (uno o varios lugares)</span></h4>
         <MapaSelector bind:ubicaciones={ubicaciones} />
       </div>
 
       <div class="sec">
-        <h4 class="sec-hdr">Evidencia fotográfica</h4>
+        <h4 class="sec-hdr"><i class="bi bi-images"></i> Evidencia fotográfica</h4>
         <label class="drop-zone">
           <input type="file" accept="image/*" multiple onchange={onFotosChange} />
           <i class="bi bi-cloud-arrow-up"></i>
@@ -410,7 +417,8 @@
   .sec-note { font-size:.72rem; font-weight:600; color:var(--gris); }
 
   /* Stepper */
-  .stepper { display:flex; align-items:center; justify-content:center; gap:0; margin:0 auto 18px; max-width:820px; padding:0 10px; }
+  .stepper { display:flex; align-items:center; justify-content:space-between; gap:0; margin:0 0 20px; width:100%; padding:0; box-sizing:border-box; }
+  .stepper-divider { height:1px; background:#f0f0f0; margin-bottom:24px; width:100%; }
   .step { display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; }
   .step-circle { width:34px; height:34px; border-radius:50%; background:#eee; color:#999; font-weight:800; font-size:.9rem;
     display:flex; align-items:center; justify-content:center; border:2px solid #e0e0e0; transition:all .2s; }

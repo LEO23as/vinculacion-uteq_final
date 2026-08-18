@@ -1,4 +1,4 @@
-﻿<script>
+<script>
   import { onMount } from 'svelte';
   import { fetchAPI } from '$lib/stores';
 
@@ -51,8 +51,9 @@
 
 <div class="subbar">
   <nav class="breadcrumb">
-    <a href="/dashboard">Inicio</a><span class="sep">/</span>
-    <span class="current">Convenios</span><span class="sep">/</span>
+    <a href="/dashboard">Inicio</a>
+    <span class="sep">/</span>
+    <span class="current">Convenios</span>
   </nav>
   <a href="/convenios/nuevo" class="btn-nuevo"><i class="bi bi-plus-lg"></i> Nuevo convenio</a>
 </div>
